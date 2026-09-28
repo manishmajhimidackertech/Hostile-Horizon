@@ -1,0 +1,20 @@
+{
+  "name": "hostile-horizon",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Side-scrolling aerial combat PWA built with Three.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview --host",
+    "icons": "node scripts/gen-icons.mjs"
+  },
+  "dependencies": {
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "vite": "^8.3.1",
+    "vite-plugin-pwa": "^1.3.0"
+  }
+}

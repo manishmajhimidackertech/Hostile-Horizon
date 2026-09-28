@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b1522" />
+    <meta name="description" content="Hostile Horizon — a side-scrolling aerial combat game. Dogfight, bomb and upgrade your jet. Installable and playable offline." />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Hostile Horizon" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="icon" href="/icons/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icons/icon-192.png" sizes="192x192" type="image/png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <title>Hostile Horizon</title>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="game"></canvas>
+
+      <!-- In-flight HUD -->
+      <div id="hud" hidden>
+        <div class="hud-top">
+          <div class="hud-block hud-left">
+            <div class="meter hull"><div class="meter-fill" id="hud-hull"></div><span class="meter-label">HULL</span></div>
+            <div class="ammo">
+              <span class="ammo-item"><b>MSL</b> <span id="hud-missiles">0</span></span>
+              <span class="ammo-item"><b>BMB</b> <span id="hud-bombs">0</span></span>
+            </div>
+          </div>
+          <div class="hud-block hud-center">
+            <div class="progress"><div class="progress-fill" id="hud-progress"></div><div class="progress-boss">☠</div></div>
+            <div class="hud-mission" id="hud-mission">MISSION 1</div>
+          </div>
+          <div class="hud-block hud-right">
+            <div class="hud-score" id="hud-score">0</div>
+            <div class="hud-credits"><span class="coin"></span><span id="hud-credits">0</span></div>
+            <div class="hud-combo" id="hud-combo"></div>
+          </div>
+          <button class="hud-pause" id="btn-pause" aria-label="Pause">
+            <svg viewBox="0 0 24 24" width="22" height="22"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></svg>
+          </button>
+        </div>
+        <div class="boss-bar" id="boss-bar" hidden>
+          <div class="boss-name" id="boss-name"></div>
+          <div class="meter boss"><div class="meter-fill" id="boss-fill"></div></div>
+        </div>
+      </div>
+
+      <!-- Touch controls -->
+      <div id="touch" hidden>
+        <div id="touch-steer"><div class="steer-hint">DRAG TO FLY</div></div>
+        <div class="touch-buttons">
+          <button id="t-bomb" class="tbtn small">BOMB<span id="t-bomb-count"></span></button>
+          <button id="t-missile" class="tbtn small">MSL<span id="t-missile-count"></span></button>
+          <button id="t-fire" class="tbtn big">FIRE</button>
+        </div>
+      </div>
+
+      <div id="damage-vignette"></div>
+      <div id="popups"></div>
+      <div id="banner"></div>
+      <div id="toast"></div>
+
+      <!-- Title -->
+      <section class="screen" id="screen-title">
+        <div class="title-wrap">
+          <div class="logo">
+            <div class="logo-top">HOSTILE</div>
+            <div class="logo-bottom">HORIZON</div>
+            <div class="logo-sub">Aerial combat · Upgrade · Survive</div>
+          </div>
+          <div class="menu">
+            <button class="btn primary" id="btn-play">PLAY</button>
+            <button class="btn" id="btn-help">HOW TO PLAY</button>
+            <button class="btn" id="btn-settings">SETTINGS</button>
+            <button class="btn ghost" id="btn-install" hidden>INSTALL APP</button>
+          </div>
+          <div class="title-foot">
+            <span id="title-best"></span>
+            <span id="update-note" hidden>Update ready · <button class="link" id="btn-update">Reload</button></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Hangar -->
+      <section class="screen" id="screen-hangar">
+        <div class="panel wide">
+          <header class="panel-head">
+            <button class="icon-btn" id="hangar-back" aria-label="Back">‹</button>
+            <h2>HANGAR</h2>
+            <div class="wallet"><span class="coin"></span><span id="hangar-credits">0</span></div>
+          </header>
+          <div class="hangar-body">
+            <div class="sortie">
+              <div class="eyebrow">NEXT SORTIE</div>
+              <div class="mission-select">
+                <button class="icon-btn" id="mission-prev" aria-label="Previous mission">‹</button>
+                <div class="mission-info">
+                  <div class="mission-num" id="mission-num">MISSION 1</div>
+                  <div class="mission-name" id="mission-name">Verdant Valley</div>
+                  <div class="mission-boss" id="mission-boss"></div>
+                </div>
+                <button class="icon-btn" id="mission-next" aria-label="Next mission">›</button>
+              </div>
+              <button class="btn primary launch" id="btn-launch">LAUNCH</button>
+              <div class="record" id="hangar-record"></div>
+            </div>
+            <div class="upgrades" id="upgrades"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- How to play -->
+      <section class="screen" id="screen-help">
+        <div class="panel">
+          <header class="panel-head">
+            <button class="icon-btn" data-back aria-label="Back">‹</button>
+            <h2>HOW TO PLAY</h2>
+            <span></span>
+          </header>
+          <div class="help-body">
+            <p>Fly through each sortie, shoot down enemy aircraft and bomb ground targets. Survive to the end and destroy the heavy target to win. Spend credits in the hangar on upgrades.</p>
+            <table class="controls">
+              <thead><tr><th></th><th>Keyboard</th><th>Mouse</th><th>Touch</th><th>Gamepad</th></tr></thead>
+              <tbody>
+                <tr><th>Fly</th><td>WASD / Arrows</td><td>Move pointer</td><td>Drag left side</td><td>Left stick</td></tr>
+                <tr><th>Cannons</th><td>Space (hold)</td><td>Left button</td><td>FIRE (hold)</td><td>A / RT</td></tr>
+                <tr><th>Missile</th><td>E</td><td>Right button</td><td>MSL</td><td>B / RB</td></tr>
+                <tr><th>Bomb</th><td>Q</td><td>Wheel / middle</td><td>BOMB</td><td>X / LB</td></tr>
+                <tr><th>Pause</th><td>Esc / P</td><td>—</td><td>II button</td><td>Start</td></tr>
+              </tbody>
+            </table>
+            <ul class="tips">
+              <li><b>Cannons</b> fire where your nose points. Dive to strafe ground targets.</li>
+              <li><b>Missiles</b> lock onto the nearest aircraft. They can also shoot down enemy rockets.</li>
+              <li><b>Bombs</b> keep your forward speed. Release them just before you pass over tanks and flak guns.</li>
+              <li>Chain kills quickly to build a <b>combo</b> score multiplier.</li>
+              <li>Pick up <b>crates</b>. Green crates repair your hull and olive crates restock ammo.</li>
+              <li><b>Install</b>: use your browser's “Install app” option, or on iOS use Share → Add to Home Screen. The game works offline once installed.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Settings -->
+      <section class="screen" id="screen-settings">
+        <div class="panel">
+          <header class="panel-head">
+            <button class="icon-btn" data-back aria-label="Back">‹</button>
+            <h2>SETTINGS</h2>
+            <span></span>
+          </header>
+          <div class="settings-body">
+            <div class="setting"><span>Sound effects</span><button class="toggle" id="set-sfx"></button></div>
+            <div class="setting"><span>Music</span><button class="toggle" id="set-music"></button></div>
+            <div class="setting"><span>Auto-fire</span><button class="toggle" id="set-autofire"></button></div>
+            <div class="setting"><span>Graphics</span>
+              <div class="segmented" id="set-quality">
+                <button data-q="low">Low</button><button data-q="medium">Med</button><button data-q="high">High</button>
+              </div>
+            </div>
+            <div class="setting"><span>Fullscreen</span><button class="toggle" id="set-fullscreen"></button></div>
+            <div class="setting danger"><span>Progress</span><button class="btn small danger" id="set-reset">RESET</button></div>
+            <p class="fineprint">Antialiasing changes take effect on the next launch.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Pause -->
+      <section class="screen dim" id="screen-pause">
+        <div class="panel narrow">
+          <h2>PAUSED</h2>
+          <div class="menu">
+            <button class="btn primary" id="btn-resume">RESUME</button>
+            <button class="btn" id="btn-restart">RESTART</button>
+            <button class="btn" id="btn-pause-settings">SETTINGS</button>
+            <button class="btn ghost" id="btn-abort">ABORT MISSION</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Results -->
+      <section class="screen dim" id="screen-result">
+        <div class="panel narrow">
+          <h2 id="result-title">MISSION COMPLETE</h2>
+          <div class="result-sub" id="result-sub"></div>
+          <dl class="result-stats" id="result-stats"></dl>
+          <div class="menu">
+            <button class="btn primary" id="btn-next">NEXT MISSION</button>
+            <button class="btn" id="btn-retry">RETRY</button>
+            <button class="btn ghost" id="btn-to-hangar">HANGAR</button>
+          </div>
+        </div>
+      </section>
+
+      <div id="rotate-hint" hidden>
+        <div class="rotate-icon"></div>
+        <p>Rotate your device to landscape for the best experience</p>
+        <button class="btn small" id="btn-rotate-dismiss">PLAY ANYWAY</button>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
