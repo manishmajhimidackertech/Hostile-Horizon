@@ -321,7 +321,7 @@ export class UI {
     const save = this.save;
     const m = missionInfo(this.selectedMission);
     applyGod(save);
-    $('hangar-credits').textContent = save.profile === 'god' ? 'Infinity' : save.credits.toLocaleString();
+    $('hangar-credits').textContent = save.profile === 'god' ? 'Infinite' : save.credits.toLocaleString();
     $('mission-num').textContent = `MISSION ${m.number}`;
     $('mission-name').textContent = m.name;
     $('mission-desc').textContent = m.desc;
@@ -576,11 +576,11 @@ export class UI {
       $('hud-hull').parentElement.classList.toggle('low', hull < 0.3);
     });
     const inf = g.god;
-    this._set('msl', inf ? 'Infinity' : p.missiles, (v) => {
+    this._set('msl', inf ? 'Infinite' : p.missiles, (v) => {
       $('hud-missiles').textContent = v;
       $('t-missile-count').textContent = v;
     });
-    this._set('bmb', inf ? 'Infinity' : p.bombs, (v) => {
+    this._set('bmb', inf ? 'Infinite' : p.bombs, (v) => {
       $('hud-bombs').textContent = v;
       $('t-bomb-count').textContent = v;
     });
