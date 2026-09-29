@@ -198,7 +198,11 @@ export class Player {
       if (this.bombs > 0 && this.bombT <= 0) {
         if (!g.god) this.bombs--;
         this.bombT = 0.25;
-        g.weapons.bomb(this.x - 0.3, this.y - 0.8, g.scroll + this.vxRel * 0.5, Math.min(0, this.vyRel * 0.3) - 2, s.bombRadius, s.bombDamage);
+        // A multi-bomb drop spreads into a short stick along the ground.
+        for (let i = 0; i < s.bombSalvo; i++) {
+          const off = i - (s.bombSalvo - 1) / 2;
+          g.weapons.bomb(this.x - 0.3 + off * 0.6, this.y - 0.8 - Math.abs(off) * 0.3, g.scroll + this.vxRel * 0.5 + off * 3.5, Math.min(0, this.vyRel * 0.3) - 2, s.bombRadius, s.bombDamage);
+        }
       } else if (this.bombs <= 0) g.audio.play('deny');
     }
 
