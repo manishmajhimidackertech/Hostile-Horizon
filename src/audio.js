@@ -138,8 +138,11 @@ export class AudioEngine {
         break;
       case 'explode':
         if (this._gate(name, 0.05)) {
-          this._noise(0.45 + 0.35 * size, Math.min(0.7, 0.3 + 0.2 * size), 'lowpass', 2200, 60);
-          this._osc('sine', 140, 30, 0.35 + 0.2 * size, 0.35);
+          // Crack, blast and rumble: all filtered noise, no pitched tones.
+          const k = Math.min(2, size);
+          this._noise(0.1, 0.3, 'bandpass', 2600, 800, 0.8);
+          this._noise(0.45 + 0.3 * k, 0.4 + 0.12 * k, 'lowpass', 1500, 110, 0.7);
+          this._noise(0.9 + 0.5 * k, 0.3 + 0.1 * k, 'lowpass', 240, 50, 1, 0.02);
         }
         break;
       case 'bigExplode':
