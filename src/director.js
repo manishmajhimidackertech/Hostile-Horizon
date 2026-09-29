@@ -12,7 +12,7 @@ export function missionInfo(n) {
     name: MAPS[theme].name,
     desc: MAPS[theme].desc,
     map: MAPS[theme],
-    boss: n % 3 === 0 ? 'airship' : 'bomber',
+    boss: MAPS[theme].bosses[Math.floor((n - 1) / MAPS.length) % MAPS[theme].bosses.length],
     duration: Math.min(70 + n * 10, 150),
   };
 }

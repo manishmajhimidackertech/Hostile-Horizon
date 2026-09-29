@@ -7,7 +7,7 @@ import { Player } from './player.js';
 import { Enemy, BOSS_NAMES } from './enemies.js';
 import { Director, missionInfo, difficulty } from './director.js';
 import { createPickup, createPlaneModel } from './models.js';
-import { writeSave } from './save.js';
+import { writeSave, applyGod } from './save.js';
 import { getPlane, planeStats } from './planes.js';
 
 const FOV = 28;
@@ -99,6 +99,14 @@ export class Game {
 
     this.last = performance.now();
     this.renderer.setAnimationLoop((t) => this.frame(t));
+  }
+
+  get god() {
+    return this.save.profile === 'god';
+  }
+
+  skipToBoss() {
+    if (this.director && this.director.bossState === 'none') this.director.t = this.mission.duration;
   }
 
   resetStats() {
@@ -295,6 +303,7 @@ export class Game {
     }
     const newHigh = s.score > save.highScore;
     if (newHigh) save.highScore = s.score;
+    applyGod(save);
     writeSave(save);
     this.state = 'ended';
     this.audio.play(success ? 'win' : 'lose');

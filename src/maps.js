@@ -2,11 +2,12 @@
 //   terrain  : hills | canyon | ocean | volcano | city  (shape of the land)
 //   scenery  : forest | desert | snow | island | volcanic | city
 //   weather  : rain | snow | sand | ash (camera-space particles)
+//   bosses   : end-of-mission bosses, rotating each time the map comes round again
 //   extras   : lightning, searchlights, naval (ships replace tanks/flak), hazard 'lava' (falling lava bombs)
 
 export const MAPS = [
   {
-    id: 'valley', name: 'Verdant Valley', desc: 'Rolling farmland and forests',
+    id: 'valley', bosses: ['bomber', 'ace', 'titan'], name: 'Verdant Valley', desc: 'Rolling farmland and forests',
     terrain: 'hills', scenery: 'forest', town: 0.35, clouds: 2,
     skyTop: '#2f6fc4', skyBottom: '#c4e4fb', fog: '#c9e2f5',
     hemiSky: '#dff0ff', hemiGround: '#5a6b3a', sun: '#fff4c8', sunLight: '#fff3dc', sunIntensity: 2.4, hemiIntensity: 1.4,
@@ -15,7 +16,7 @@ export const MAPS = [
     buildings: ['#c9c1b0', '#b5a58b', '#d8d2c4'], windows: '#3b4a5a', cloud: '#ffffff',
   },
   {
-    id: 'canyon', name: 'Red Canyon', desc: 'Towering mesas and a howling dust storm',
+    id: 'canyon', bosses: ['behemoth', 'nightwing', 'bomber'], name: 'Red Canyon', desc: 'Towering mesas and a howling dust storm',
     terrain: 'canyon', scenery: 'desert', weather: 'sand', town: 0.2, clouds: 1, fogNear: 30, fogFar: 300,
     skyTop: '#5c8cc0', skyBottom: '#f0c89a', fog: '#e2b187',
     hemiSky: '#ffe6c8', hemiGround: '#9a5433', sun: '#fff0c0', sunLight: '#ffe2c0', sunIntensity: 2.6, hemiIntensity: 1.3,
@@ -25,7 +26,7 @@ export const MAPS = [
     buildings: ['#e0cfa5', '#cdb68a', '#d9c7a0'], windows: '#5a4630', cloud: '#fff1dc',
   },
   {
-    id: 'coast', name: 'Coastal Assault', desc: 'Island chain defended by gunboats and AA ships',
+    id: 'coast', bosses: ['dreadnought', 'airship', 'ace'], name: 'Coastal Assault', desc: 'Island chain defended by gunboats and AA ships',
     terrain: 'ocean', scenery: 'island', naval: true, clouds: 3,
     skyTop: '#2a78c8', skyBottom: '#bfe6f7', fog: '#cfe9f5',
     hemiSky: '#e4f4ff', hemiGround: '#3f6f7a', sun: '#fff6d8', sunLight: '#fff5e0', sunIntensity: 2.5, hemiIntensity: 1.4,
@@ -34,7 +35,7 @@ export const MAPS = [
     buildings: ['#f2efe6', '#e6dcc8'], windows: '#3b5a7a', cloud: '#ffffff',
   },
   {
-    id: 'frozen', name: 'Frozen Front', desc: 'Blizzard over the tundra',
+    id: 'frozen', bosses: ['titan', 'behemoth', 'airship'], name: 'Frozen Front', desc: 'Blizzard over the tundra',
     terrain: 'hills', scenery: 'snow', weather: 'snow', town: 0.25, clouds: 3, fogNear: 40, fogFar: 320,
     skyTop: '#5d86b0', skyBottom: '#dde9f3', fog: '#dbe6ef',
     hemiSky: '#eef6ff', hemiGround: '#8aa0b3', sun: '#ffffff', sunLight: '#f2f6ff', sunIntensity: 2.0, hemiIntensity: 1.6,
@@ -43,7 +44,7 @@ export const MAPS = [
     buildings: ['#9b8b7a', '#7d6f63', '#b1a28f'], windows: '#f4c870', cloud: '#f5f8fb',
   },
   {
-    id: 'storm', name: 'Storm Front', desc: 'Torrential rain and lightning strikes',
+    id: 'storm', bosses: ['airship', 'nightwing', 'titan'], name: 'Storm Front', desc: 'Torrential rain and lightning strikes',
     terrain: 'hills', scenery: 'forest', weather: 'rain', lightning: true, noSun: true, town: 0.3, clouds: 4,
     fogNear: 30, fogFar: 300,
     skyTop: '#232a33', skyBottom: '#5f6c78', fog: '#56626d',
@@ -53,7 +54,7 @@ export const MAPS = [
     buildings: ['#8d8a84', '#7a766f', '#9c988f'], windows: '#f4d27a', cloud: '#5d6670',
   },
   {
-    id: 'volcano', name: 'Volcano Ridge', desc: 'Erupting volcanoes. Shoot or dodge the falling lava bombs',
+    id: 'volcano', bosses: ['nightwing', 'behemoth', 'bomber'], name: 'Volcano Ridge', desc: 'Erupting volcanoes. Shoot or dodge the falling lava bombs',
     terrain: 'volcano', scenery: 'volcanic', weather: 'ash', hazard: 'lava', clouds: 2, fogNear: 40, fogFar: 330,
     skyTop: '#241012', skyBottom: '#b8472c', fog: '#6e2e22',
     hemiSky: '#ff9a6a', hemiGround: '#2a1a16', sun: '#ffb080', sunLight: '#ff9a70', sunIntensity: 1.7, hemiIntensity: 1.2,
@@ -62,7 +63,7 @@ export const MAPS = [
     buildings: ['#5a4d45'], windows: '#ff9a4a', cloud: '#3b302d',
   },
   {
-    id: 'city', name: 'Metropolis', desc: 'Urban warfare among the skyscrapers at dusk',
+    id: 'city', bosses: ['ace', 'titan', 'airship'], name: 'Metropolis', desc: 'Urban warfare among the skyscrapers at dusk',
     terrain: 'city', scenery: 'city', lit: true, clouds: 2, fogNear: 15, fogFar: 320,
     skyTop: '#2b2d5c', skyBottom: '#f39a5d', fog: '#d98a66',
     hemiSky: '#ffc59a', hemiGround: '#40324a', sun: '#ffb070', sunLight: '#ffb58a', sunIntensity: 2.2, hemiIntensity: 1.2,
@@ -71,7 +72,7 @@ export const MAPS = [
     buildings: ['#5d6270', '#6d6a73', '#4f5563', '#7a7680', '#8a7f78'], windows: '#ffd27a', windowsOff: '#2a2f3a', cloud: '#ffd2b8',
   },
   {
-    id: 'night', name: 'Night Siege', desc: 'Night raid under sweeping searchlights',
+    id: 'night', bosses: ['nightwing', 'airship', 'behemoth'], name: 'Night Siege', desc: 'Night raid under sweeping searchlights',
     terrain: 'hills', scenery: 'forest', night: true, searchlights: true, lit: true, town: 0.5, clouds: 2,
     skyTop: '#060b1c', skyBottom: '#1f3456', fog: '#1b2a45',
     hemiSky: '#6f8fc4', hemiGround: '#1a2230', sun: '#e8eeff', sunLight: '#9fb6ff', sunIntensity: 1.4, hemiIntensity: 1.0,

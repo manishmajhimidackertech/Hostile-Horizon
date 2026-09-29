@@ -61,6 +61,12 @@ export class Player {
   hurt(amount) {
     const g = this.game;
     if (!this.alive || this.invuln > 0 || g.state !== 'playing') return;
+    if (g.god) {
+      // God mode: shrug it off.
+      this.invuln = 0.15;
+      g.fx.sparks(this.x, this.y, 6, g.scroll);
+      return;
+    }
     this.hp -= amount;
     this.invuln = 0.7;
     this.sinceHit = 0;
@@ -180,7 +186,7 @@ export class Player {
     }
     if (input.missilePressed()) {
       if (this.missiles > 0) {
-        this.missiles--;
+        if (!g.god) this.missiles--;
         for (let i = 0; i < s.salvo; i++) {
           const off = (i - (s.salvo - 1) / 2) * 1.1;
           g.weapons.missile(this.x - Math.abs(off) * 0.5, this.y - 0.4 + off, this.vxRel, this.vyRel + off * 4, s.missileDamage);
@@ -190,7 +196,7 @@ export class Player {
     this.bombT -= dt;
     if (input.bombPressed()) {
       if (this.bombs > 0 && this.bombT <= 0) {
-        this.bombs--;
+        if (!g.god) this.bombs--;
         this.bombT = 0.25;
         g.weapons.bomb(this.x - 0.3, this.y - 0.8, g.scroll + this.vxRel * 0.5, Math.min(0, this.vyRel * 0.3) - 2, s.bombRadius, s.bombDamage);
       } else if (this.bombs <= 0) g.audio.play('deny');

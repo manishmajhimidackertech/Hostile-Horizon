@@ -1,7 +1,10 @@
 // Persistent progress (credits, owned planes and their upgrades, unlocked missions, settings).
 import { PLANE_BY_ID } from './planes.js';
 
-const KEY = 'hostile-horizon:save:v1';
+const KEYS = { main: 'hostile-horizon:save:v1', god: 'hostile-horizon:save:god' };
+const GOD_FLAG = 'hostile-horizon:god';
+export const GOD_CREDITS = 999999999;
+export const GOD_MISSIONS = 99;
 
 export const UPGRADES = [
   { id: 'armor', name: 'Armor Plating', desc: '+25% max hull per level (and faster self-repair)', max: 5, base: 120 },
@@ -34,10 +37,41 @@ export function defaultSave() {
   };
 }
 
-export function loadSave() {
+// God mode is a separate test profile, so it never touches real progress.
+export function isGodEnabled() {
+  try {
+    return localStorage.getItem(GOD_FLAG) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function setGodEnabled(on) {
+  try {
+    if (on) localStorage.setItem(GOD_FLAG, '1');
+    else localStorage.removeItem(GOD_FLAG);
+  } catch {
+    // ignore
+  }
+}
+
+export function applyGod(save) {
+  if (save.profile !== 'god') return;
+  save.credits = GOD_CREDITS;
+  save.unlocked = Math.max(save.unlocked, GOD_MISSIONS);
+}
+
+export function loadSave(profile = 'main') {
+  const save = readSave(profile);
+  save.profile = profile;
+  applyGod(save);
+  return save;
+}
+
+function readSave(profile) {
   const def = defaultSave();
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(KEYS[profile]);
     if (!raw) return def;
     const data = JSON.parse(raw);
     const save = {
@@ -64,7 +98,7 @@ export function loadSave() {
 
 export function writeSave(save) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(save));
+    localStorage.setItem(KEYS[save.profile] || KEYS.main, JSON.stringify(save));
   } catch {
     // Storage may be unavailable (private mode); progress just won't persist.
   }

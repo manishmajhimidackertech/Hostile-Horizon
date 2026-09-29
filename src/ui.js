@@ -1,5 +1,7 @@
 // DOM overlay: menus, hangar, HUD, banners and floating score popups.
-import { UPGRADES, upgradeCost, writeSave, defaultSave, emptyUpgrades } from './save.js';
+import {
+  UPGRADES, upgradeCost, writeSave, defaultSave, emptyUpgrades, loadSave, applyGod, setGodEnabled,
+} from './save.js';
 import { PLANES, planeRatings } from './planes.js';
 import { missionInfo } from './director.js';
 import { BOSS_NAMES } from './enemies.js';
@@ -138,10 +140,38 @@ export class UI {
       const fresh = defaultSave();
       fresh.settings = { ...this.save.settings };
       Object.assign(this.save, fresh);
+      applyGod(this.save);
       writeSave(this.save);
       this.selectedMission = 1;
       this.toast('Progress reset', 2);
     });
+
+    // Hidden god mode: type "godmode" or tap the title logo 7 times.
+    let typed = '';
+    addEventListener('keydown', (e) => {
+      if (e.key.length !== 1) return;
+      typed = (typed + e.key.toLowerCase()).slice(-7);
+      if (typed === 'godmode') {
+        typed = '';
+        this.toggleGod();
+      }
+    });
+    let taps = [];
+    document.querySelector('.logo').addEventListener('click', () => {
+      const now = performance.now();
+      taps = taps.filter((t) => now - t < 4000);
+      taps.push(now);
+      if (taps.length >= 7) {
+        taps = [];
+        this.toggleGod();
+      }
+    });
+    this._click('set-god', () => this.toggleGod());
+    this._click('btn-skip-boss', () => {
+      this.game.skipToBoss();
+      this.game.resume();
+    });
+    this._updateGodBadge();
 
     // Install prompt (Chromium browsers)
     addEventListener('beforeinstallprompt', (e) => {
@@ -224,6 +254,36 @@ export class UI {
     this.blocking = show;
   }
 
+  // Swap between the real save and the god-mode test profile (kept in separate slots).
+  toggleGod() {
+    const on = this.save.profile !== 'god';
+    writeSave(this.save);
+    setGodEnabled(on);
+    const next = loadSave(on ? 'god' : 'main');
+    next.settings = { ...this.save.settings };
+    for (const k of Object.keys(this.save)) delete this.save[k];
+    Object.assign(this.save, next);
+    writeSave(this.save);
+    this.audio.play(on ? 'buy' : 'ui');
+    this.toast(on
+      ? 'GOD MODE ON · test profile with unlimited credits, health and ammo'
+      : 'God mode off · back to your real save', 3);
+    this._applySettings();
+    this._updateGodBadge();
+    if (this.game) {
+      this.hudCache = {};
+      if (this.current === 'hangar') this.openHangar();
+      else if (this.game.state === 'menu') this.game.showMenuScene(Math.min(this.selectedMission, this.save.unlocked));
+      this._refreshTitle();
+    }
+  }
+
+  _updateGodBadge() {
+    const on = this.save.profile === 'god';
+    $('god-badge').hidden = !on;
+    $('set-god-row').hidden = !on;
+  }
+
   _refreshTitle() {
     const best = this.save.highScore;
     $('title-best').textContent = best ? `Best score ${best.toLocaleString()}` : '';
@@ -256,7 +316,8 @@ export class UI {
   _renderHangar() {
     const save = this.save;
     const m = missionInfo(this.selectedMission);
-    $('hangar-credits').textContent = save.credits.toLocaleString();
+    applyGod(save);
+    $('hangar-credits').textContent = save.profile === 'god' ? '∞' : save.credits.toLocaleString();
     $('mission-num').textContent = `MISSION ${m.number}`;
     $('mission-name').textContent = m.name;
     $('mission-desc').textContent = m.desc;
@@ -417,6 +478,8 @@ export class UI {
   }
 
   showPause() {
+    const g = this.game;
+    $('btn-skip-boss').hidden = !(g.god && g.director && g.director.bossState === 'none');
     this.show('pause');
   }
 
@@ -508,11 +571,12 @@ export class UI {
       $('hud-hull').style.transform = `scaleX(${hull})`;
       $('hud-hull').parentElement.classList.toggle('low', hull < 0.3);
     });
-    this._set('msl', p.missiles, (v) => {
+    const inf = g.god;
+    this._set('msl', inf ? '∞' : p.missiles, (v) => {
       $('hud-missiles').textContent = v;
       $('t-missile-count').textContent = v;
     });
-    this._set('bmb', p.bombs, (v) => {
+    this._set('bmb', inf ? '∞' : p.bombs, (v) => {
       $('hud-bombs').textContent = v;
       $('t-bomb-count').textContent = v;
     });

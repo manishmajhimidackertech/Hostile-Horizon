@@ -89,6 +89,7 @@ export class Weapons {
       damage,
       life: opts.fuse ?? 5,
       flak: !!opts.flak,
+      grav: opts.grav || 0,
       big: !!opts.big || !!opts.flak,
     });
     if (!opts.flak) g.audio.play('enemyShoot');
@@ -180,6 +181,7 @@ export class Weapons {
     list = this.enemy.items;
     for (let i = list.length - 1; i >= 0; i--) {
       const b = list[i];
+      if (b.grav) b.vy += b.grav * dt;
       b.x += b.vx * dt;
       b.y += b.vy * dt;
       b.life -= dt;

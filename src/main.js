@@ -1,12 +1,12 @@
 import './style.css';
 import { registerSW } from 'virtual:pwa-register';
-import { loadSave } from './save.js';
+import { loadSave, isGodEnabled } from './save.js';
 import { AudioEngine } from './audio.js';
 import { Input } from './input.js';
 import { UI } from './ui.js';
 import { Game } from './game.js';
 
-const save = loadSave();
+const save = loadSave(isGodEnabled() ? 'god' : 'main');
 const audio = new AudioEngine();
 const canvas = document.getElementById('game');
 const input = new Input(canvas);

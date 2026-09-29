@@ -3,6 +3,7 @@
 import {
   MAT, createFighter, createDart, createHelicopter, createTank, createFlak,
   createBomber, createAirship, createMissile, createGunboat, createAAShip, createMeteor,
+  createTitan, createBehemoth, createDreadnought, createAce, createNightwing,
 } from './models.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -504,4 +505,280 @@ KINDS.meteor = {
   },
 };
 
-export const BOSS_NAMES = { bomber: KINDS.bomber.name, airship: KINDS.airship.name };
+// Shared logic for ground/naval fortress bosses: hold position on the right,
+// aim every gun at the player, big shells from main guns and fused flak from the rest.
+function fortressUpdate(e, dt, g, cfg) {
+  const rel = e.x - g.camX;
+  const vxRel = clamp((g.halfW - cfg.hold - rel) * 0.9, -16, 4);
+  e.x += (g.scroll + vxRel) * dt;
+  e.y = g.world.groundY(e.x);
+  if (!e.def.naval) e.obj.rotation.z = g.world.groundSlope(e.x) * 0.5;
+  const phase2 = e.hp < e.maxHp * 0.5;
+  const rate = g.diff.rate * (phase2 ? 1.35 : 1);
+  const inRange = rel < g.halfW - 1;
+  const p = g.player;
+  e.obj.userData.guns.forEach((gun, i) => {
+    const wx = e.x + gun.pos[0];
+    const wy = e.y + gun.pos[1];
+    const a = clamp(e.aimAngle(wx, wy), 0.12, Math.PI - 0.12);
+    aim(gun.pivot, a, false, dt, gun.type === 'main' ? 1.5 : 3);
+    e.gunT[i] -= dt;
+    if (e.gunT[i] > 0 || !inRange || !p.alive) return;
+    const ang = gun.pivot.rotation.z;
+    const mx = wx + Math.cos(ang) * 2.5;
+    const my = wy + Math.sin(ang) * 2.5;
+    if (gun.type === 'main') {
+      const shots = phase2 ? 3 : 1;
+      for (let k = 0; k < shots; k++) g.weapons.enemyBullet(mx, my, ang + (k - (shots - 1) / 2) * 0.1, 23 * g.diff.speed, 16, { big: true });
+      g.fx.muzzle(mx, my, 0);
+      g.shake(0.15);
+      e.gunT[i] = rand(2.2, 3.2) / rate;
+    } else {
+      const speed = 26 * g.diff.speed;
+      const dist = Math.hypot(p.x - mx, p.y - my);
+      g.weapons.enemyBullet(mx, my, ang, speed, 12, { fuse: dist / speed + rand(-0.1, 0.12), flak: true });
+      g.audio.play('flak');
+      e.gunT[i] = rand(1.4, 2.2) / rate;
+    }
+  });
+  e.missileT -= dt;
+  if (e.missileT <= 0 && inRange) {
+    const n = phase2 ? 4 : 2;
+    for (let k = 0; k < n; k++) g.addEnemy('rocket', e.x + cfg.rack[0], e.y + cfg.rack[1], { heading: Math.PI * 0.5 + 0.35 + k * 0.18 });
+    g.audio.play('missile');
+    e.missileT = rand(5, 7) / rate;
+  }
+  if (phase2 && Math.random() < dt * 8) {
+    const c = e.circles[Math.floor(Math.random() * e.circles.length)];
+    g.fx.damageSmoke(e.x + c[0], e.y + c[1] + 1, g.scroll, true);
+  }
+}
+
+// Heavy twin-rotor gunship.
+KINDS.titan = {
+  hp: 140, r: 3, score: 3500, credits: 350, air: true, boss: true, name: 'Titan Heavy Gunship',
+  circles: [[-4.5, 0, 2.2], [-1, 0, 2.2], [2.5, 0.3, 2.2], [5, 1.2, 2]],
+  build: () => createTitan(),
+  init(e) {
+    e.burst = 0;
+    e.gunT = 1.5;
+    e.rocketT = 4;
+    e.fanT = 6;
+    e.vy = 0;
+  },
+  update(e, dt, g) {
+    const u = e.obj.userData;
+    u.rotors[0].rotation.y += dt * 22;
+    u.rotors[1].rotation.y -= dt * 22;
+    const rel = e.x - g.camX;
+    const vxRel = clamp((g.halfW - 13 - rel) * 1.1, -18, 5);
+    e.x += (g.scroll + vxRel) * dt;
+    const ty = clamp(g.player.y, -6, g.halfH - 9);
+    e.vy += (clamp((ty - e.y) * 0.8, -6, 6) - e.vy) * Math.min(1, dt * 1.5);
+    e.y += e.vy * dt;
+    e.obj.rotation.z = clamp(-vxRel * 0.01, -0.2, 0.2) + Math.sin(e.age * 1.3) * 0.03;
+    const phase2 = e.hp < e.maxHp * 0.5;
+    const rate = g.diff.rate * (phase2 ? 1.4 : 1);
+    const inRange = rel < g.halfW - 3 && g.player.alive;
+    const gun = u.guns[0];
+    const gx = e.x + gun.pos[0];
+    const gy = e.y + gun.pos[1];
+    aim(gun.pivot, e.aimAngle(gx, gy), false, dt, 5);
+    e.gunT -= dt;
+    if (e.gunT <= 0 && inRange) {
+      if (e.burst <= 0) e.burst = phase2 ? 14 : 10;
+      g.weapons.enemyBullet(gx, gy, e.aimAngle(gx, gy) + rand(-0.08, 0.08), 30 * g.diff.speed, 6);
+      e.burst--;
+      e.gunT = e.burst > 0 ? 0.08 : rand(1.8, 2.6) / rate;
+    }
+    e.rocketT -= dt;
+    if (e.rocketT <= 0 && inRange) {
+      const n = phase2 ? 8 : 6;
+      for (let k = 0; k < n; k++) g.addEnemy('rocket', e.x + 0.3, e.y - 1 + (k % 2 ? 0.5 : -0.5), { heading: Math.PI + (k - (n - 1) / 2) * 0.12 });
+      g.audio.play('missile');
+      e.rocketT = rand(5, 7) / rate;
+    }
+    if (phase2) {
+      e.fanT -= dt;
+      if (e.fanT <= 0 && inRange) {
+        for (let k = 0; k < 9; k++) g.weapons.enemyBullet(e.x - 3, e.y - 1, Math.PI * 0.7 + k * 0.075, 17 * g.diff.speed, 8);
+        e.fanT = rand(3, 4);
+      }
+      if (Math.random() < dt * 8) g.fx.damageSmoke(e.x + rand(-4, 4), e.y + 1, g.scroll, true);
+    }
+  },
+};
+
+// Land fortress super-tank.
+KINDS.behemoth = {
+  hp: 200, r: 4, score: 4000, credits: 400, air: false, boss: true, name: 'Behemoth Land Fortress',
+  circles: [[-5, 2, 2.4], [-1.5, 2.5, 2.6], [2.5, 2.5, 2.6], [5.5, 2.2, 2.4], [0.5, 4.8, 2.2]],
+  build: () => createBehemoth(),
+  init(e, o, g) {
+    e.y = g.world.groundY(e.x);
+    e.gunT = [2, 1.2, 1.8];
+    e.missileT = 5;
+  },
+  update(e, dt, g) {
+    fortressUpdate(e, dt, g, { hold: 14, rack: [5.4, 5.6] });
+  },
+};
+
+// Battleship: the naval fortress.
+KINDS.dreadnought = {
+  hp: 240, r: 5, score: 4500, credits: 450, air: false, boss: true, naval: true, name: 'Dreadnought Battleship',
+  circles: [[-9, 1, 2.2], [-5, 1.2, 2.6], [-1, 1.5, 2.8], [3, 1.5, 2.8], [7, 1.2, 2.6], [0.5, 5.5, 2.2]],
+  build: () => createDreadnought(),
+  init(e, o, g) {
+    e.y = g.world.groundY(e.x);
+    e.gunT = [2.5, 1.5, 3.2, 1.0, 1.8];
+    e.missileT = 6;
+  },
+  update(e, dt, g) {
+    fortressUpdate(e, dt, g, { hold: 18, rack: [5.4, 3.5] });
+  },
+};
+
+// Enemy ace: agile dogfighter that loops around and dives at the player.
+KINDS.ace = {
+  hp: 75, r: 2, score: 3500, credits: 350, air: true, boss: true, name: 'Crimson Ace',
+  circles: [[0, 0, 1.9]],
+  build: () => createAce(),
+  init(e) {
+    e.state = 'fly';
+    e.stateT = 6;
+    e.fireT = 1.5;
+    e.missileT = 5;
+    e.heading = Math.PI;
+    e.wingmen = false;
+    e.flyT = 0;
+    e.ram = 0;
+  },
+  update(e, dt, g) {
+    const p = g.player;
+    const phase2 = e.hp < e.maxHp * 0.5;
+    const rate = g.diff.rate * (phase2 ? 1.3 : 1);
+    let vxRel;
+    let vy;
+    if (e.state === 'fly') {
+      // Figure-eight over the right side of the screen.
+      e.flyT += dt;
+      const t = e.flyT * (phase2 ? 0.8 : 0.65);
+      const tx = g.camX + g.halfW * 0.35 + Math.cos(t) * g.halfW * 0.4;
+      const ty = 5 + Math.sin(t * 2) * Math.min(12, g.halfH - 9);
+      vxRel = clamp((tx - e.x) * 2.5, -32, 32);
+      vy = clamp((ty - e.y) * 2.5, -26, 26);
+      e.stateT -= dt;
+      if (e.stateT <= 0 && p.alive) {
+        e.state = 'aim';
+        e.stateT = 0.8;
+        g.ui.banner('ACE IS DIVING AT YOU!', 1, 'warn');
+      }
+    } else if (e.state === 'aim') {
+      vxRel = 0;
+      vy = 0;
+      e.stateT -= dt;
+      if (e.stateT <= 0) {
+        e.state = 'dash';
+        e.stateT = 1.4;
+        e.dashA = Math.atan2(p.y - e.y, p.x - e.x);
+        e.ram = 30;
+      }
+    } else {
+      vxRel = Math.cos(e.dashA) * 50;
+      vy = Math.sin(e.dashA) * 50;
+      e.stateT -= dt;
+      const rel = e.x - g.camX;
+      if (e.stateT <= 0 || rel < -g.halfW - 6 || Math.abs(e.y) > g.halfH + 4) {
+        e.state = 'fly';
+        e.stateT = rand(5, 7) / rate;
+        e.ram = 0;
+        if (rel < -g.halfW) e.x = g.camX + g.halfW + 8;
+        e.y = clamp(e.y, -8, g.halfH - 6);
+      }
+    }
+    e.x += (g.scroll + vxRel) * dt;
+    e.y += vy * dt;
+    if (Math.hypot(vxRel, vy) > 2) e.heading = turnToward(e.heading, Math.atan2(vy, vxRel), dt * 6);
+    e.obj.rotation.z = e.heading;
+    e.obj.rotation.x = Math.sin(e.age * 3) * 0.5;
+    e.obj.userData.flame.scale.x = e.state === 'dash' ? 2 : 1 + Math.random() * 0.4;
+    if (e.state === 'dash' && Math.random() < 0.7) g.fx.exhaust(e.x - Math.cos(e.heading) * 3, e.y - Math.sin(e.heading) * 3, g.scroll, 0, 1.2);
+    e.fireT -= dt;
+    if (e.fireT <= 0 && p.alive && e.onScreen(1)) {
+      const a = e.aimAngle(e.x, e.y);
+      for (let k = 0; k < 3; k++) g.weapons.enemyBullet(e.x + Math.cos(a) * 2.5, e.y + Math.sin(a) * 2.5, a + (k - 1) * 0.06, 32 * g.diff.speed, 8);
+      e.fireT = (e.state === 'dash' ? 0.25 : rand(1.0, 1.6)) / rate;
+    }
+    e.missileT -= dt;
+    if (phase2 && e.missileT <= 0) {
+      g.addEnemy('rocket', e.x, e.y, { heading: e.heading + 0.4 });
+      g.addEnemy('rocket', e.x, e.y, { heading: e.heading - 0.4 });
+      g.audio.play('missile');
+      e.missileT = rand(5, 7);
+    }
+    if (phase2 && !e.wingmen) {
+      e.wingmen = true;
+      g.ui.banner('ACE CALLED IN WINGMEN', 1.5, 'warn');
+      for (let k = 0; k < 3; k++) g.addEnemy('fighter', g.camX + g.halfW + 5 + k * 4, 12 - k * 6, { amp: 2, speed: 12 });
+    }
+  },
+};
+
+// Stealth flying wing: carpet-bombing passes across the top of the screen.
+KINDS.nightwing = {
+  hp: 170, r: 4, score: 4000, credits: 400, air: true, boss: true, name: 'Nightwing Stealth Bomber',
+  circles: [[-4, 0, 2.2], [0, 0, 2.8], [2.5, 4.5, 2.2], [2.5, -4.5, 2.2], [4.5, 8, 1.8], [4.5, -8, 1.8]],
+  build: () => createNightwing(),
+  init(e, o, g) {
+    e.state = 'pass';
+    e.y = g.halfH - 10;
+    e.bombT = 0.5;
+    e.gunT = 1;
+    e.awayT = 0;
+    e.passes = 0;
+  },
+  update(e, dt, g) {
+    const phase2 = e.hp < e.maxHp * 0.5;
+    const rate = g.diff.rate * (phase2 ? 1.35 : 1);
+    for (const f of e.obj.userData.glows) f.scale.x = 0.8 + Math.random() * 0.4;
+    if (e.state === 'away') {
+      e.x = g.camX + g.halfW + 25;
+      e.awayT -= dt;
+      if (e.awayT <= 0) {
+        e.state = 'pass';
+        e.passes++;
+        // Alternate high passes with low, faster runs.
+        e.y = e.passes % 2 ? rand(-2, 6) : g.halfH - 10;
+        g.ui.banner('NIGHTWING INBOUND', 1.2, 'warn');
+      }
+      return;
+    }
+    const speed = (phase2 ? 19 : 14) * g.diff.speed;
+    e.x += (g.scroll - speed) * dt;
+    e.y += Math.sin(e.age * 1.5) * dt * 1.5;
+    e.obj.rotation.z = Math.sin(e.age * 1.5) * 0.04;
+    const rel = e.x - g.camX;
+    const onScreen = Math.abs(rel) < g.halfW + 4;
+    e.bombT -= dt;
+    if (e.bombT <= 0 && onScreen) {
+      for (const dz of [-3, 3]) g.weapons.enemyBullet(e.x + 1, e.y - 1 + dz * 0.3, -Math.PI / 2, 3, 12, { big: true, grav: -22 });
+      e.bombT = (phase2 ? 0.28 : 0.4) / g.diff.rate;
+    }
+    e.gunT -= dt;
+    if (e.gunT <= 0 && onScreen && g.player.alive) {
+      const a = e.aimAngle(e.x + 2, e.y);
+      const n = phase2 ? 5 : 3;
+      for (let k = 0; k < n; k++) g.weapons.enemyBullet(e.x + 2, e.y, a + (k - (n - 1) / 2) * 0.12, 20 * g.diff.speed, 8);
+      if (phase2) g.addEnemy('rocket', e.x, e.y, { heading: a });
+      e.gunT = rand(1.4, 2) / rate;
+    }
+    if (phase2 && Math.random() < dt * 8) g.fx.damageSmoke(e.x + rand(-3, 4), e.y, g.scroll, true);
+    if (rel < -g.halfW - 14) {
+      e.state = 'away';
+      e.awayT = phase2 ? 1.2 : 2;
+    }
+  },
+};
+
+export const BOSS_NAMES = Object.fromEntries(Object.entries(KINDS).filter(([, d]) => d.boss).map(([k, d]) => [k, d.name]));

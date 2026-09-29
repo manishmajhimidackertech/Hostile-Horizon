@@ -24,7 +24,17 @@ Fly a jet through enemy territory. Shoot down fighters, interceptors and gunship
 
 - **Six aircraft**: F-5 Hawk (starter), V-7 Viper, A-12 Thunderbolt, F-40 Raptor, Su-X Specter and X-1 Nova. They differ in hull, guns, speed and ordnance. The heavier planes repair themselves when out of fire, and the top planes launch missiles in pairs or threes. Each plane has its own five-level upgrade tracks.
 - **Enemies**: fighters (including ones attacking from behind), homing interceptors, gunships with rockets, tanks, time-fused flak guns and naval units.
-- **Bosses**: the *B-9 Stratofortress* bomber, and the *Leviathan Airship* every third mission.
+- **Seven bosses**, each with its own attack patterns and an enraged second phase below 50% hull. Every map has a signature boss, and the boss rotates each time the map comes round again:
+
+  | Boss | Style |
+  | --- | --- |
+  | B-9 Stratofortress | Heavy bomber with twin turrets and rocket volleys |
+  | Leviathan Airship | Armoured zeppelin: turrets, bullet fans, rocket salvos, barrages |
+  | Titan Heavy Gunship | Twin-rotor helicopter that tracks your altitude with a chin minigun and rocket pods |
+  | Behemoth Land Fortress | Giant multi-turret tank: main cannon, flak guns, missile rack (bring bombs) |
+  | Dreadnought Battleship | Naval fortress with three main turrets and AA guns |
+  | Crimson Ace | Agile dogfighter that loops around, dives at you and calls in wingmen |
+  | Nightwing Stealth Bomber | Flying wing that makes carpet-bombing passes at changing altitudes |
 - **Weapons**: cannons aimed by the jet's pitch, homing missiles and gravity bombs.
 - **Progression**: credits, combo multiplier, an aircraft shop with rendered previews, six upgrade tracks per plane, and unlockable missions. Progress is saved in `localStorage`, and older saves migrate automatically (existing upgrades move to the Hawk).
 - **Input**: keyboard, mouse steering, touch (drag to fly with FIRE / MSL / BOMB buttons and optional auto-fire) and gamepad.
@@ -40,6 +50,17 @@ Fly a jet through enemy territory. Shoot down fighters, interceptors and gunship
 | Missile | E              | Right button    | MSL            | B / RB     |
 | Bomb    | Q              | Wheel / middle  | BOMB           | X / LB     |
 | Pause   | Esc / P        | —               | II button      | Start      |
+
+## God mode (for testing)
+
+Type `godmode` on the keyboard at any time, or tap the title logo 7 times, to switch to a separate **test profile** with:
+
+- unlimited credits (buy every plane and upgrade),
+- all missions unlocked,
+- no damage and unlimited missiles and bombs,
+- a **SKIP TO BOSS** button in the pause menu.
+
+A **GOD MODE** badge shows while it is active. Do the same again, or use the toggle in Settings, to switch back. God mode keeps its own save slot, so your real progress is never touched.
 
 ## Development
 

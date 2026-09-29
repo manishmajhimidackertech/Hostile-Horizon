@@ -57,6 +57,7 @@
         </div>
       </div>
 
+      <div id="god-badge" hidden>GOD MODE</div>
       <div id="damage-vignette"></div>
       <div id="lightning-flash"></div>
       <div id="popups"></div>
@@ -181,6 +182,7 @@
               </div>
             </div>
             <div class="setting"><span>Fullscreen</span><button class="toggle" id="set-fullscreen"></button></div>
+            <div class="setting" id="set-god-row" hidden><span>God mode (test profile)</span><button class="toggle on" id="set-god"></button></div>
             <div class="setting danger"><span>Progress</span><button class="btn small danger" id="set-reset">RESET</button></div>
             <p class="fineprint">Antialiasing changes take effect on the next launch.</p>
           </div>
@@ -194,6 +196,7 @@
           <div class="menu">
             <button class="btn primary" id="btn-resume">RESUME</button>
             <button class="btn" id="btn-restart">RESTART</button>
+            <button class="btn" id="btn-skip-boss" hidden>SKIP TO BOSS</button>
             <button class="btn" id="btn-pause-settings">SETTINGS</button>
             <button class="btn ghost" id="btn-abort">ABORT MISSION</button>
           </div>

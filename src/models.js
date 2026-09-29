@@ -98,6 +98,7 @@ const PALETTES = {
   player: { body: '#a9bccb', dark: '#34465a', wing: '#8aa0b3', glass: '#1f3346', accent: '#e8a33d' },
   fighter: { body: '#8a4b43', dark: '#3a2522', wing: '#6d3a34', glass: '#221a1a', accent: '#d9d1b8' },
   dart: { body: '#2e2f33', dark: '#141517', wing: '#3b3d42', glass: '#b23a2a', accent: '#e6c229' },
+  ace: { body: '#9c1f1f', dark: '#151515', wing: '#7a1616', glass: '#e0b020', accent: '#f2f2f2' },
 };
 
 function jetGeometry(pal) {
@@ -763,4 +764,155 @@ export function volcanoParts(x, y, z, r, h, theme) {
     part(cyl(r * 0.12, r, h, 14, 1), theme.mountain, [x, y + h / 2, z]),
     part(cyl(r * 0.1, r * 0.12, 1.5, 14, 1), theme.lava, [x, y + h + 0.2, z]),
   ];
+}
+
+// ---------------------------------------------------------------- extra bosses
+
+// Aimable gun: returns { pivot, pos, type } and adds the barrel to `parent`.
+function bossGun(parent, pos, type, scale = 1) {
+  const pivot = new THREE.Group();
+  pivot.position.set(pos[0], pos[1], pos[2] || 0);
+  const barrel = mesh(barrelGeometry(type !== 'main'));
+  barrel.scale.set(type === 'main' ? 2.2 * scale : 1.3 * scale, type === 'main' ? 1.6 * scale : scale, type === 'main' ? 1.6 * scale : scale);
+  pivot.add(barrel);
+  parent.add(pivot);
+  return { pivot, pos: [pos[0], pos[1]], type, mesh: barrel };
+}
+
+// Heavy twin-rotor gunship, facing -X.
+export function createTitan() {
+  const root = new THREE.Group();
+  const hull = '#4d5347';
+  const dark = '#23271f';
+  const geo = cached('titan', () => merge([
+    part(box(11, 2.6, 2.6), hull, [0, 0, 0]),
+    part(sphere(1.4, 10, 8), hull, [-5.6, -0.1, 0], [0, 0, 0], [1.3, 0.95, 0.95]),
+    part(sphere(0.9, 8, 6), '#1c2a36', [-6.3, 0.4, 0], [0, 0, 0], [1, 0.7, 0.9]),
+    part(box(2.2, 2.2, 2.0), hull, [-4.2, 1.9, 0]),
+    part(box(3.0, 3.0, 2.0), hull, [4.4, 2.2, 0]),
+    part(box(8.5, 0.3, 2.7), dark, [0, -1.35, 0]),
+    part(box(1.4, 0.2, 6.4), hull, [0.5, -0.6, 0]),
+    ...[-2.9, 2.9].map((z) => part(cyl(0.45, 0.45, 2.6, 8), dark, [0.3, -0.9, z], ALONG_X)),
+    ...[-1.1, 1.1].flatMap((z) => [part(box(0.18, 1.2, 0.18), dark, [-3, -1.9, z]), part(box(0.18, 1.2, 0.18), dark, [3, -1.9, z])]),
+    ...[-1.1, 1.1].map((z) => part(box(8.4, 0.2, 0.25), dark, [0, -2.5, z])),
+    part(box(1.4, 0.35, 2.8), '#c9b24a', [1.6, 0.4, 0]),
+  ]));
+  const body = mesh(geo);
+  root.add(body);
+  const rotorGeo = cached('titan:rotor', () => merge([
+    part(box(11, 0.08, 0.5), '#16180f'),
+    part(box(0.5, 0.08, 11), '#16180f'),
+    part(box(7.8, 0.08, 0.5), '#16180f', [0, 0, 0], [0, PI / 4, 0]),
+  ]));
+  const rotors = [[-4.2, 3.1], [4.4, 3.8]].map(([x, y]) => {
+    const r = mesh(rotorGeo);
+    r.position.set(x, y, 0);
+    root.add(r);
+    return r;
+  });
+  const guns = [bossGun(root, [-5.9, -1.3, 0.4], 'minigun', 0.9)];
+  root.userData.rotors = rotors;
+  root.userData.guns = guns;
+  root.userData.meshes = [body, ...rotors, ...guns.map((g) => g.mesh)];
+  return root;
+}
+
+// Land fortress super-tank, facing -X. Base at y = 0.
+export function createBehemoth() {
+  const root = new THREE.Group();
+  const hull = '#5a5f3f';
+  const dark = '#23251a';
+  const geo = cached('behemoth', () => {
+    const P = [
+      part(box(14, 2.2, 4.4), hull, [0, 2.1, 0]),
+      part(box(2.6, 1.6, 4.4), hull, [-7.6, 1.8, 0], [0, 0, 0.55]),
+      part(box(15, 1.7, 1.1), dark, [0, 0.95, 2.4]),
+      part(box(15, 1.7, 1.1), dark, [0, 0.95, -2.4]),
+      part(box(8, 2.0, 3.6), hull, [0.6, 4.2, 0]),
+      part(box(5, 0.5, 3.2), '#c9b24a', [0.6, 5.3, 0]),
+      part(box(3.4, 2.0, 3.2), '#3a3d2a', [5.6, 3.9, 0]),
+      part(cyl(1.6, 1.8, 1.0, 10), dark, [-2.2, 5.6, 0]),
+    ];
+    for (let i = 0; i < 7; i++) {
+      const x = -6 + i * 2;
+      P.push(part(cyl(0.75, 0.75, 0.4, 10), '#34372a', [x, 0.9, 2.95], [HALF, 0, 0]));
+    }
+    for (let i = 0; i < 3; i++) P.push(part(cyl(0.22, 0.22, 1.4, 6), '#8a2a22', [4.6 + i * 0.8, 5.3, 0.6], [0, 0, -0.4]));
+    return merge(P);
+  });
+  const body = mesh(geo);
+  root.add(body);
+  const guns = [
+    bossGun(root, [-2.2, 6.1, 0], 'main', 1.1),
+    bossGun(root, [3.2, 5.4, 1.2], 'flak'),
+    bossGun(root, [-5.2, 3.6, 1.6], 'flak'),
+  ];
+  root.userData.guns = guns;
+  root.userData.meshes = [body, ...guns.map((g) => g.mesh)];
+  return root;
+}
+
+// Battleship, facing -X. Waterline at y = 0.
+export function createDreadnought() {
+  const root = new THREE.Group();
+  const hull = '#5c6770';
+  const dark = '#2a3036';
+  const geo = cached('dreadnought', () => merge([
+    part(box(20, 2.4, 4.6), hull, [0.5, 0.6, 0]),
+    part(cone(2.3, 4.5, 4), hull, [-11.6, 0.6, 0], [HALF, 0, HALF], [1, 1, 0.75]),
+    part(box(21, 0.5, 4.7), '#7a2e27', [0, -0.5, 0]),
+    part(box(20.5, 0.2, 4.8), '#b9b39a', [0.3, 1.85, 0]),
+    part(box(4.4, 3.4, 3.2), '#8e98a0', [0.5, 3.5, 0]),
+    part(box(2.8, 2.2, 2.6), '#8e98a0', [0.3, 6.2, 0]),
+    part(box(3.0, 0.5, 2.8), dark, [0.3, 7.2, 0]),
+    part(cyl(0.12, 0.16, 5, 5), dark, [0.3, 9.6, 0]),
+    part(box(0.2, 0.2, 3), dark, [0.3, 11, 0]),
+    part(cyl(0.9, 1.1, 3.2, 8), dark, [4.2, 3.6, 0], [0, 0, -0.15]),
+    part(cyl(0.9, 1.1, 3.2, 8), dark, [6.6, 3.4, 0], [0, 0, -0.15]),
+    ...[-7.2, -3.8, 8.4].map((x) => part(cyl(1.4, 1.6, 0.9, 10), dark, [x, 2.2, 0])),
+  ]));
+  const body = mesh(geo);
+  root.add(body);
+  const guns = [
+    bossGun(root, [-7.2, 2.9, 0], 'main'),
+    bossGun(root, [-3.8, 2.9, 0], 'main'),
+    bossGun(root, [8.4, 2.9, 0], 'main'),
+    bossGun(root, [-1.9, 5.3, 1.7], 'flak'),
+    bossGun(root, [2.9, 5.3, 1.7], 'flak'),
+  ];
+  root.userData.guns = guns;
+  root.userData.meshes = [body, ...guns.map((g) => g.mesh)];
+  return root;
+}
+
+// Enemy ace: oversized crimson fighter built facing +X (steered by heading).
+export function createAce() {
+  return buildJet(PALETTES.ace, 1, 1.35);
+}
+
+// Stealth flying wing, facing -X, tilted to show its chevron planform.
+export function createNightwing() {
+  const root = new THREE.Group();
+  const model = new THREE.Group();
+  model.rotation.x = 1.05;
+  root.add(model);
+  const skin = '#2a2e38';
+  const geo = cached('nightwing', () => merge([
+    wing([[-5.5, 0], [3, 10.5], [5.8, 10.5], [4.2, 7.2], [5.8, 4.2], [3.6, 1.8], [5.2, 0], [3.6, -1.8], [5.8, -4.2], [4.2, -7.2], [5.8, -10.5], [3, -10.5]], 0.5, skin),
+    part(sphere(1, 12, 8), '#343947', [-0.6, 0.35, 0], [0, 0, 0], [4.6, 0.9, 2.6]),
+    part(box(1.4, 0.2, 1.8), '#101218', [-3.4, 0.7, 0]),
+    ...[-2.2, 2.2].map((z) => part(box(2.6, 0.5, 1.1), '#1d2029', [0.8, 0.55, z])),
+  ]));
+  const body = mesh(geo);
+  model.add(body);
+  const glows = [-2.2, 2.2].map((z) => {
+    const f = new THREE.Mesh(flameGeometry(), MAT.glowBlue);
+    f.position.set(2.2, 0.55, z);
+    f.scale.set(0.8, 0.9, 1.4);
+    model.add(f);
+    return f;
+  });
+  root.userData.glows = glows;
+  root.userData.meshes = [body];
+  return root;
 }

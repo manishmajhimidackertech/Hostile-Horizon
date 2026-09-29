@@ -253,6 +253,22 @@ button {
 .plane-actions .btn.owned { background: rgba(87, 214, 141, 0.15); color: var(--good); border-color: rgba(87, 214, 141, 0.4); }
 .mission-desc { color: #c8d4df; font-size: 12px; margin-top: 4px; }
 
+#god-badge {
+  position: absolute;
+  left: calc(10px + var(--safe-l));
+  top: calc(56px + var(--safe-t));
+  z-index: 30;
+  pointer-events: none;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.25em;
+  padding: 3px 10px;
+  border-radius: 999px;
+  color: #2a1700;
+  background: linear-gradient(90deg, #ffcf6b, #f0a42c);
+  box-shadow: 0 0 12px rgba(240, 164, 44, 0.6);
+}
+
 #lightning-flash {
   position: absolute;
   inset: 0;
