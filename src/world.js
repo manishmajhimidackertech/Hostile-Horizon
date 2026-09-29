@@ -264,6 +264,17 @@ export class World {
     return Math.atan2(this.groundY(x + 1) - this.groundY(x - 1), 2);
   }
 
+  // Rooftops of the near row of city buildings currently within `range` of camX.
+  roofsNear(camX, range) {
+    const out = [];
+    const ground = this.layers[0];
+    if (!ground) return out;
+    for (const obj of ground.chunks.values()) {
+      for (const r of obj.userData.roofs || []) if (Math.abs(r[0] - camX) < range) out.push(r);
+    }
+    return out;
+  }
+
   isWater() {
     return this.theme.terrain === 'ocean';
   }
@@ -401,15 +412,17 @@ export class World {
     terrain.computeVertexNormals();
 
     const parts = [terrain];
-    this._scenery(parts, index, x0, W);
+    const roofs = [];
+    this._scenery(parts, index, x0, W, roofs);
     const geo = merge(parts);
     const m = new THREE.Mesh(geo, MAT.body);
     m.matrixAutoUpdate = false;
+    m.userData.roofs = roofs;
     return m;
   }
 
   // Scenery is baked into the same geometry as the terrain chunk.
-  _scenery(parts, index, x0, W) {
+  _scenery(parts, index, x0, W, roofs = []) {
     const t = this.theme;
     const r = rng(index * 7919 + this.seed * 31);
     const at = (x, z) => this.heightAt(x, z);
@@ -487,7 +500,11 @@ export class World {
           const x = x0 + (i + 0.2 + r() * 0.6) * (W / 5);
           const z = -12 - r() * 12;
           const w = 4 + r() * 3;
-          parts.push(...skyscraperParts(x, at(x, z), z, w, 6 + r() * 12, 4 + r() * 3, t, r(), t.lit));
+          const h = 6 + r() * 12;
+          const d = 4 + r() * 3;
+          parts.push(...skyscraperParts(x, at(x, z), z, w, h, d, t, r(), t.lit));
+          // Front edge of the roof: vigilante launch points.
+          roofs.push([x, at(x, z) + h - 0.3, z + d / 2]);
         }
         for (let i = 0; i < 5; i++) {
           const x = x0 + (i + 0.1 + r() * 0.8) * (W / 5);

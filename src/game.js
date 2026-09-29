@@ -37,16 +37,13 @@ const HINTS = {
     keyboard: 'Lava bombs! Shoot them down or dodge',
   },
   lightning: {
-    keyboard: 'Crackling air means lightning is about to strike there. Move away!',
-  },
-  eruption: {
-    keyboard: 'A glowing vent is about to erupt. Lava hits enemies too',
+    keyboard: 'Lightning strikes at random. Anything caught in the bolt gets hit, enemies too',
   },
   vigilante: {
-    keyboard: 'Red beacon: vigilantes are launching a torpedo. It targets anything that flies',
+    keyboard: 'Red rooftop beacon: vigilantes are firing an unguided torpedo. Change course to dodge',
   },
   searchlight: {
-    keyboard: 'You are in a searchlight! Get out before it locks on, or bomb the tower',
+    keyboard: 'You are in a searchlight! Leave the beam quickly or a missile launches',
   },
   naval: {
     touch: 'Enemy ships! Tap BOMB to drop bombs on them',

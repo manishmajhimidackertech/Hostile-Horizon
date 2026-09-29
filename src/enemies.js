@@ -249,7 +249,7 @@ const KINDS = {
       e.obj.rotation.z = e.heading;
       e.obj.rotation.x = Math.sin(e.age * 6) * 0.4;
       e.obj.userData.flame.scale.x = 1.2 + Math.random() * 0.6;
-      if (Math.random() < 0.5) g.fx.exhaust(e.x - Math.cos(e.heading) * 2.4, e.y - Math.sin(e.heading) * 2.4, g.scroll, 0, 0.8);
+      if (Math.random() < 0.5) g.fx.exhaust(e.x - Math.cos(e.heading) * 2.4, e.y - Math.sin(e.heading) * 2.4, 0, 0, 0.8);
     },
   },
 
@@ -341,7 +341,7 @@ const KINDS = {
       e.x += (g.scroll + Math.cos(e.heading) * e.speed) * dt;
       e.y += Math.sin(e.heading) * e.speed * dt;
       e.obj.rotation.z = e.heading;
-      g.fx.trail(e.x - Math.cos(e.heading) * 0.9, e.y - Math.sin(e.heading) * 0.9, g.scroll * 0.9, 0, 0.8, true);
+      g.fx.trail(e.x - Math.cos(e.heading) * 0.9, e.y - Math.sin(e.heading) * 0.9, 0, 0, 0.8, true);
       if (e.life <= 0 || e.y < g.world.groundY(e.x)) {
         g.fx.explosion(e.x, e.y, 0.5, g.scroll);
         e.remove();
@@ -450,7 +450,7 @@ const KINDS = {
         g.audio.play('missile');
         e.patternT = rand(4.5, 6.5) / g.diff.rate;
       }
-      if (enraged && Math.random() < dt * 8) g.fx.damageSmoke(e.x + rand(-3, 3), e.y, g.scroll, true);
+      if (enraged && Math.random() < dt * 8) g.fx.damageSmoke(e.x + rand(-3, 3), e.y, 0, true);
     },
   },
 
@@ -527,7 +527,7 @@ const KINDS = {
       }
       if (phase2 && Math.random() < dt * 10) {
         const c = e.circles[Math.floor(Math.random() * 5)];
-        g.fx.damageSmoke(e.x + c[0], e.y + c[1] + 2, g.scroll, true);
+        g.fx.damageSmoke(e.x + c[0], e.y + c[1] + 2, 0, true);
       }
     },
   },
@@ -585,7 +585,8 @@ KINDS.meteor = {
   },
 };
 
-// Night-map watchtower: sweeps a searchlight; keep the player lit too long and it fires a missile.
+// Night-map watchtower: its searchlight sweeps on a fixed pattern and never follows the
+// player. Staying inside the beam for a moment triggers a missile launch.
 KINDS.watchtower = {
   hp: 6, r: 1.5, score: 250, credits: 20, air: false,
   circles: [[0, 2, 1.3], [0, 5.5, 1.3], [0, 9, 1.6]],
@@ -608,30 +609,30 @@ KINDS.watchtower = {
     while (d > Math.PI) d -= Math.PI * 2;
     while (d < -Math.PI) d += Math.PI * 2;
     const lit = p.alive && g.state === 'playing' && Math.abs(d) < 0.12 && Math.hypot(p.x - lx, p.y - ly) < 55 && e.onScreen(-2);
+    // The sweep is independent of the player.
+    e.sweepT += dt;
+    e.beamA = turnToward(e.beamA, Math.PI * 0.55 + Math.sin(e.sweepT * 0.7) * 0.45, dt * 0.8);
     if (lit) {
       e.lock += dt;
-      e.beamA = turnToward(e.beamA, toP, dt * 0.9);
       g.hint('searchlight');
     } else {
-      e.lock = Math.max(0, e.lock - dt * 0.8);
-      e.sweepT += dt;
-      e.beamA = turnToward(e.beamA, Math.PI * 0.55 + Math.sin(e.sweepT * 0.7) * 0.45, dt * 0.8);
+      e.lock = Math.max(0, e.lock - dt * 2);
     }
     e.cool -= dt;
-    if (e.lock > 1.1 && e.cool <= 0) {
+    if (e.lock > 0.6 && e.cool <= 0) {
       g.addEnemy('rocket', lx, ly + 0.5, { heading: toP });
       g.fx.muzzle(lx, ly, 0);
       g.audio.play('missile');
       g.ui.banner('MISSILE LOCK!', 0.9, 'danger');
       e.cool = 3;
       e.lock = 0;
-    } else if (lit && e.lock > 0.35 && !e.beeped) {
+    } else if (lit && e.lock > 0.2 && !e.beeped) {
       g.audio.play('beep');
       e.beeped = true;
     }
     if (!lit) e.beeped = false;
     u.beamPivot.rotation.z = e.beamA - Math.PI / 2;
-    const k = Math.min(1, e.lock / 1.1);
+    const k = Math.min(1, e.lock / 0.6);
     u.beamMat.color.setRGB(1, 0.95 - k * 0.8, 0.77 - k * 0.7);
     u.beamMat.opacity = 0.13 + k * 0.12;
   },
@@ -704,7 +705,7 @@ function fortressUpdate(e, dt, g, cfg) {
   }
   if (phase2 && Math.random() < dt * 8) {
     const c = e.circles[Math.floor(Math.random() * e.circles.length)];
-    g.fx.damageSmoke(e.x + c[0], e.y + c[1] + 1, g.scroll, true);
+    g.fx.damageSmoke(e.x + c[0], e.y + c[1] + 1, 0, true);
   }
 }
 
@@ -766,7 +767,7 @@ KINDS.titan = {
         for (let k = 0; k < 9; k++) g.weapons.enemyBullet(e.x + 3, e.y - 1, Math.PI * 0.7 + k * 0.075, 17 * g.diff.speed, 8);
         e.fanT = rand(3, 4);
       }
-      if (Math.random() < dt * 8) g.fx.damageSmoke(e.x + rand(-4, 4), e.y + 1, g.scroll, true);
+      if (Math.random() < dt * 8) g.fx.damageSmoke(e.x + rand(-4, 4), e.y + 1, 0, true);
     }
   },
 };
@@ -1003,7 +1004,7 @@ KINDS.nightwing = {
       e.state = 'pass';
       g.ui.banner('NIGHTWING INBOUND', 1.2, 'warn');
     }
-    if (phase2 && Math.random() < dt * 8) g.fx.damageSmoke(e.x, e.y, e.vxWorld * 0.5, true);
+    if (phase2 && Math.random() < dt * 8) g.fx.damageSmoke(e.x, e.y, 0, true);
   },
 };
 

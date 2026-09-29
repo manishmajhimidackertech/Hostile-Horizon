@@ -97,7 +97,7 @@ export class Player {
     this.vyRel = (ny - this.y) / Math.max(dt, 1e-3);
     this.y = ny;
     this._pose(dt);
-    if (Math.random() < 0.8) g.fx.exhaust(this.x - 2.6, this.y, g.scroll * 0.8, 0, 1, this.plane.flame);
+    if (Math.random() < 0.8) g.fx.exhaust(this.x - 2.6, this.y, 0, 0, 1, this.plane.flame);
   }
 
   update(dt) {
@@ -205,8 +205,8 @@ export class Player {
     // Exhaust and damage smoke.
     const bx = this.x - 2.4 * Math.cos(pitch);
     const by = this.y - 2.4 * Math.sin(pitch);
-    g.fx.exhaust(bx, by, g.scroll * 0.7, 0, 1, this.plane.flame);
-    if (this.hp < this.maxHp * 0.35 && Math.random() < 0.5) g.fx.damageSmoke(bx, by, g.scroll * 0.6, this.hp < this.maxHp * 0.18);
+    g.fx.exhaust(bx, by, 0, 0, 1, this.plane.flame);
+    if (this.hp < this.maxHp * 0.35 && Math.random() < 0.5) g.fx.damageSmoke(bx, by, 0, this.hp < this.maxHp * 0.18);
   }
 
   _pose(dt) {

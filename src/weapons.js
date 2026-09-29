@@ -232,7 +232,7 @@ export class Weapons {
       m.obj.position.set(m.x, m.y, 0.3);
       m.obj.rotation.z = m.heading;
       m.obj.rotation.x += dt * 8;
-      g.fx.trail(m.x - Math.cos(m.heading) * 0.9, m.y - Math.sin(m.heading) * 0.9, g.scroll * 0.9, 0, 0.9);
+      g.fx.trail(m.x - Math.cos(m.heading) * 0.9, m.y - Math.sin(m.heading) * 0.9, 0, 0, 0.9);
       let boom = m.life <= 0 || m.y < world.groundY(m.x) || m.x > right + 20;
       if (!boom) {
         for (const e of g.enemies) {

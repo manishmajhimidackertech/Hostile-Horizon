@@ -306,9 +306,9 @@ export class Effects {
     if (Math.random() < 0.6) this.smoke.spawn(x, y, -0.2, vx * 0.8, vy * 0.2 + 1, 0, rnd(0.8, 1.4), 1 * s, 3 * s, COL.smokeDark, COL.smoke, 0.6, 1, 1);
   }
 
-  beacon(x, y) {
-    this.glow.spawn(x, y, 0.6, 0, 0, 0, 0.12, 2.2, 1.2, COL.red, COL.red, 1);
-    this.glow.spawn(x, y, 0.7, 0, 0, 0, 0.1, 0.9, 0.5, COL.white, COL.red, 1);
+  beacon(x, y, z = 0.6) {
+    this.glow.spawn(x, y, z, 0, 0, 0, 0.12, 2.2, 1.2, COL.red, COL.red, 1);
+    this.glow.spawn(x, y, z + 0.1, 0, 0, 0, 0.1, 0.9, 0.5, COL.white, COL.red, 1);
   }
 
   plume(x, y, z, s) {

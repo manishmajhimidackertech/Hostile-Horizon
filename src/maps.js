@@ -54,7 +54,7 @@ export const MAPS = [
     buildings: ['#8d8a84', '#7a766f', '#9c988f'], windows: '#f4d27a', cloud: '#5d6670',
   },
   {
-    id: 'volcano', bosses: ['nightwing', 'behemoth', 'bomber'], name: 'Volcano Ridge', desc: 'Erupting vents and lava bombs hit friend and foe alike',
+    id: 'volcano', bosses: ['nightwing', 'behemoth', 'bomber'], name: 'Volcano Ridge', desc: 'Erupting volcanoes rain lava bombs on friend and foe alike',
     terrain: 'volcano', scenery: 'volcanic', weather: 'ash', hazard: 'lava', clouds: 2, fogNear: 40, fogFar: 330,
     skyTop: '#241012', skyBottom: '#b8472c', fog: '#6e2e22',
     hemiSky: '#ff9a6a', hemiGround: '#2a1a16', sun: '#ffb080', sunLight: '#ff9a70', sunIntensity: 1.7, hemiIntensity: 1.2,
@@ -63,7 +63,7 @@ export const MAPS = [
     buildings: ['#5a4d45'], windows: '#ff9a4a', cloud: '#3b302d',
   },
   {
-    id: 'city', bosses: ['ace', 'titan', 'airship'], name: 'Metropolis', desc: 'Street vigilantes fire torpedoes at anything that flies',
+    id: 'city', bosses: ['ace', 'titan', 'airship'], name: 'Metropolis', desc: 'Rooftop vigilantes fire torpedoes at anyone, you included',
     hazard: 'vigilantes', terrain: 'city', scenery: 'city', lit: true, clouds: 2, fogNear: 15, fogFar: 320,
     skyTop: '#2b2d5c', skyBottom: '#f39a5d', fog: '#d98a66',
     hemiSky: '#ffc59a', hemiGround: '#40324a', sun: '#ffb070', sunLight: '#ffb58a', sunIntensity: 2.2, hemiIntensity: 1.2,

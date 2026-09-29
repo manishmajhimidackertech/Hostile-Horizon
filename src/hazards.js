@@ -1,10 +1,8 @@
 // Map-specific environmental hazards that can hit the player *and* enemies:
-//   lightning   (Storm Front)  - telegraphed strike from sky to ground
-//   lava        (Volcano Ridge) - ground vents erupt lava balls upward
-//   vigilantes  (Metropolis)   - street launchers fire homing torpedoes at anything that flies
-//   watchtowers (Night Siege)  - searchlight towers that fire missiles at a lit player
-// Every hazard is telegraphed so it can be dodged. Positions are kept relative to the
-// camera while a hazard winds up, so warnings stay where the player sees them.
+//   lightning   (Storm Front)  - natural strikes at random spots; only what is in the bolt is hit
+//   lava        (Volcano Ridge) - falling lava bombs (spawned by the director)
+//   vigilantes  (Metropolis)   - rooftop launchers fire unguided torpedoes at a random target
+//   watchtowers (Night Siege)  - sweeping searchlights; stay lit and a missile launches
 import * as THREE from 'three';
 import { createMissile } from './models.js';
 
@@ -23,9 +21,9 @@ function line(points, color, opacity) {
 export class Hazards {
   constructor(game) {
     this.g = game;
-    this.warn = line(2, 0xbfe0ff, 0.5);
     this.bolt = line(18, 0xffffff, 1);
-    game.scene.add(this.warn, this.bolt);
+    this.branch = line(8, 0xdfe8ff, 0.8);
+    game.scene.add(this.bolt, this.branch);
     this.torpedoes = [];
     this.reset(null);
   }
@@ -33,11 +31,11 @@ export class Hazards {
   reset(map) {
     this.map = map;
     this.type = map ? map.hazard : null;
-    this.t = rand(5, 8);
+    this.t = rand(4, 7);
     this.pending = null;
     this.boltT = 0;
-    this.warn.visible = false;
     this.bolt.visible = false;
+    this.branch.visible = false;
     for (const t of this.torpedoes) this.g.scene.remove(t.obj);
     this.torpedoes.length = 0;
   }
@@ -52,7 +50,9 @@ export class Hazards {
     this._updateTorpedoes(dt);
     if (this.boltT > 0) {
       this.boltT -= dt;
-      this.bolt.visible = this.boltT > 0.12 || (this.boltT > 0 && this.boltT < 0.06);
+      const on = this.boltT > 0.12 || (this.boltT > 0 && this.boltT < 0.06);
+      this.bolt.visible = on;
+      this.branch.visible = on && this.boltT > 0.1;
     }
     if (!this.type) return;
     if (this.pending) {
@@ -64,152 +64,157 @@ export class Hazards {
     if (this.t > 0) return;
     switch (this.type) {
       case 'lightning':
-        this.pending = this._anchor(this._pickTargetRel(0.55), 1.0);
-        g.audio.play('crackle');
-        g.hint('lightning');
-        break;
-      case 'lava':
-        this.pending = this._anchor(this._pickTargetRel(0.4), 1.1);
-        g.audio.play('rumble');
-        g.hint('eruption');
-        break;
-      case 'vigilantes': {
-        this.pending = { ...this._anchor(g.halfW * rand(-0.75, 0.85), 0.9), target: this._pickVictim() };
-        g.audio.play('beep');
-        g.hint('vigilante');
-        break;
-      }
+        // Natural lightning: no warning, a random spot anywhere on the visible ground.
+        this._strike(g.camX + g.halfW * rand(-1, 1));
+        this.t = rand(2.5, 6) / this.rate;
+        return;
+      case 'vigilantes':
+        this._armTorpedo();
+        return;
       case 'watchtowers':
         g.addEnemy('watchtower', g.camX + g.halfW + 6, 0);
         this.t = rand(6, 10) / this.rate;
         return;
       default:
+        // 'lava' is handled by the director (lava bombs falling from the eruptions).
         return;
     }
   }
 
-  // Ground-anchored hazards are fixed in the world. Aircraft keep pace with the camera,
-  // so place the spot where the target will be when the timer runs out.
-  _anchor(rel, timer) {
-    const g = this.g;
-    return { x: g.camX + rel + g.scroll * timer, timer };
-  }
+  // ------------------------------------------------------------ lightning
 
-  // Aim near the player some of the time, otherwise near an enemy or a random spot.
-  _pickTargetRel(playerChance) {
+  _strike(x) {
     const g = this.g;
-    if (g.player.alive && Math.random() < playerChance) return g.player.x - g.camX + rand(-2.5, 2.5);
-    const air = g.enemies.filter((e) => e.air && !e.dead && e.dying <= 0 && e.onScreen(2) && e.kind !== 'meteor');
-    if (air.length && Math.random() < 0.7) {
-      const e = air[Math.floor(Math.random() * air.length)];
-      return e.x - g.camX + rand(-1.5, 1.5);
+    const gy = g.world.groundY(x);
+    const top = g.halfH + 6;
+    const pts = [];
+    const n = this.bolt.geometry.attributes.position.count;
+    let bx = x + rand(-6, 6);
+    for (let i = 0; i < n; i++) {
+      const k = i / (n - 1);
+      bx += (x - bx) * 0.3 + (i === n - 1 ? 0 : rand(-1.8, 1.8));
+      pts.push([i === n - 1 ? x : bx, top + (gy - top) * k]);
     }
-    return g.halfW * rand(-0.8, 0.8);
+    this._setLine(this.bolt, pts);
+    // A short fork off the main channel.
+    const j = Math.floor(rand(3, n / 2));
+    const fork = [pts[j]];
+    let fx = pts[j][0];
+    let fy = pts[j][1];
+    const dir = Math.random() < 0.5 ? -1 : 1;
+    for (let i = 1; i < this.branch.geometry.attributes.position.count; i++) {
+      fx += dir * rand(0.6, 2) ;
+      fy -= rand(1.2, 2.6);
+      fork.push([fx, fy]);
+    }
+    this._setLine(this.branch, fork);
+    this.boltT = 0.22;
+    for (let i = 0; i < pts.length; i += 3) g.fx.sparks(pts[i][0], pts[i][1], 2, 0);
+    g.world.flashT = 0.35;
+    g.ui.lightningFlash();
+    g.audio.play('strike');
+    g.fx.groundBlast(x, gy, 1, 0);
+    g.shake(0.6);
+    this._damageAlong(pts, 22, 12);
+    this._damageAlong(fork, 12, 6);
+    g.hint('lightning');
   }
 
-  _pickVictim() {
+  _setLine(l, pts) {
+    const a = l.geometry.attributes.position.array;
+    pts.forEach(([x, y], i) => {
+      a[i * 3] = x;
+      a[i * 3 + 1] = y;
+      a[i * 3 + 2] = 0.6;
+    });
+    l.geometry.attributes.position.needsUpdate = true;
+    l.visible = true;
+  }
+
+  // Only what the bolt actually passes through is hit (player, aircraft or vehicles).
+  _damageAlong(pts, playerDmg, enemyDmg) {
     const g = this.g;
-    const air = g.enemies.filter((e) => e.air && !e.dead && e.dying <= 0 && e.onScreen(2) && e.kind !== 'meteor' && e.kind !== 'rocket');
-    if (!g.player.alive || (air.length && Math.random() < 0.5)) return air[Math.floor(Math.random() * air.length)] || g.player;
-    return g.player;
+    const near = (x, y, r) => {
+      for (let i = 1; i < pts.length; i++) {
+        if (segDist(x, y, pts[i - 1], pts[i]) < r) return true;
+      }
+      return false;
+    };
+    const p = g.player;
+    if (p.alive && (near(p.x + 1, p.y, 1.2) || near(p.x - 1, p.y, 1.2))) {
+      g.fx.sparks(p.x, p.y, 8, g.scroll);
+      p.hurt(playerDmg);
+    }
+    for (const e of g.enemies.slice()) {
+      if (e.dead || e.dying > 0) continue;
+      if (e.circles.some((c) => near(e.x + c[0], e.y + c[1], c[2] + 0.5))) {
+        g.fx.sparks(e.x, e.y, 8, 0);
+        e.damage(e.boss ? enemyDmg * 1.5 : enemyDmg);
+      }
+    }
+  }
+
+  // ------------------------------------------------------------ vigilantes
+
+  _armTorpedo() {
+    const g = this.g;
+    const timer = 0.9;
+    // A rooftop that will still be on screen when the torpedo leaves.
+    const roofs = g.world.roofsNear(g.camX + g.scroll * timer, g.halfW * 0.85);
+    if (!roofs.length) {
+      this.t = 1;
+      return;
+    }
+    const roof = roofs[Math.floor(Math.random() * roofs.length)];
+    this.pending = { roof, timer };
+    g.audio.play('beep');
+    g.hint('vigilante');
   }
 
   _windUp(dt) {
     const g = this.g;
     const p = this.pending;
     p.timer -= dt;
-    const x = p.x;
-    const gy = g.world.groundY(x);
-    if (this.type === 'lightning') {
-      const a = this.warn.geometry.attributes.position.array;
-      a[0] = x; a[1] = gy; a[2] = 0.5;
-      a[3] = x; a[4] = g.halfH + 6; a[5] = 0.5;
-      this.warn.geometry.attributes.position.needsUpdate = true;
-      this.warn.visible = Math.random() < 0.75;
-      this.warn.material.opacity = 0.2 + Math.random() * 0.45;
-      // A crackling column of blue sparks marks where the bolt will land.
-      for (let i = 0; i < 3; i++) g.fx.exhaust(x + rand(-0.6, 0.6), rand(gy, g.halfH), 0, rand(-2, 2), 1.4, 'blue');
-      if (Math.random() < 0.4) g.fx.sparks(x, gy + rand(0, 1.5), 2, 0);
-      if (p.timer <= 0) this._strike(x, gy);
-    } else if (this.type === 'lava') {
-      if (Math.random() < 0.8) g.fx.fireTrail(x + rand(-1, 1), gy + 0.3, 0, rand(2, 6), 0.8);
-      g.shake(dt * 0.6);
-      if (p.timer <= 0) this._erupt(x, gy);
-    } else if (this.type === 'vigilantes') {
-      if (Math.floor(p.timer * 8) % 2 === 0) g.fx.beacon(x, gy + 0.6);
-      if (p.timer <= 0 && Math.abs(x - g.camX) < g.halfW + 2) this._launchTorpedo(x, gy + 0.8, p.target);
-    }
+    const [x, y, z] = p.roof;
+    if (Math.floor(p.timer * 8) % 2 === 0) g.fx.beacon(x, y + 0.4, z + 0.3);
     if (p.timer <= 0) {
       this.pending = null;
-      this.warn.visible = false;
-      this.t = rand(4, 8) / this.rate;
+      this._launchTorpedo(x, y + 0.4, z, this._pickVictim());
+      this.t = rand(3.5, 7) / this.rate;
     }
   }
 
-  _strike(x, gy) {
+  // Random target: the player or any enemy aircraft/vehicle on screen.
+  _pickVictim() {
     const g = this.g;
-    const top = g.halfH + 6;
-    const a = this.bolt.geometry.attributes.position.array;
-    const n = a.length / 3;
-    let bx = x + rand(-3, 3);
-    for (let i = 0; i < n; i++) {
-      const k = i / (n - 1);
-      const wobble = i === n - 1 ? 0 : rand(-1.6, 1.6);
-      bx = bx + (x - bx) * 0.35 + wobble;
-      a[i * 3] = i === n - 1 ? x : bx;
-      a[i * 3 + 1] = top + (gy - top) * k;
-      a[i * 3 + 2] = 0.6;
-      if (i % 3 === 0) g.fx.sparks(a[i * 3], a[i * 3 + 1], 2, 0);
-    }
-    this.bolt.geometry.attributes.position.needsUpdate = true;
-    this.bolt.visible = true;
-    this.boltT = 0.22;
-    g.world.flashT = 0.35;
-    g.ui.lightningFlash();
-    g.audio.play('strike');
-    g.fx.groundBlast(x, gy, 1, 0);
-    g.shake(0.8);
-    this._damageColumn(x, 2.4, 22, 12);
+    const others = g.enemies.filter((e) => !e.dead && e.dying <= 0 && e.onScreen(2) && e.kind !== 'meteor' && e.kind !== 'rocket' && e.kind !== 'watchtower');
+    if (g.player.alive && (!others.length || Math.random() < 0.5)) return g.player;
+    return others.length ? others[Math.floor(Math.random() * others.length)] : null;
   }
 
-  // Damage everything whose hitbox overlaps a vertical column at x.
-  _damageColumn(x, halfWidth, playerDmg, enemyDmg) {
+  // Unguided: aimed once at launch (leading the target's current motion), then flies straight.
+  _launchTorpedo(x, y, z, target) {
     const g = this.g;
-    const p = g.player;
-    if (p.alive && Math.abs(p.x - x) < halfWidth) {
-      g.fx.sparks(p.x, p.y, 8, g.scroll);
-      p.hurt(playerDmg);
+    const speed = 36;
+    let heading;
+    if (target) {
+      const p = g.player;
+      const tvx = target === p ? g.scroll + p.vxRel : (target.worldVx ?? g.scroll);
+      const tvy = target === p ? p.vyRel : (target.air ? target.vy || 0 : 0);
+      const ty0 = target.y + (target.air ? 0 : 1);
+      let t = Math.hypot(target.x - x, ty0 - y) / speed;
+      for (let k = 0; k < 2; k++) t = Math.hypot(target.x + tvx * t - x, ty0 + tvy * t - y) / speed;
+      heading = Math.atan2(ty0 + tvy * t - y, target.x + tvx * t - x);
+    } else {
+      heading = Math.PI * rand(0.3, 0.7);
     }
-    for (const e of g.enemies.slice()) {
-      if (e.dead || e.dying > 0 || !e.air) continue;
-      if (e.circles.some((c) => Math.abs(e.x + c[0] - x) < c[2] + halfWidth * 0.5)) {
-        g.fx.sparks(e.x, e.y, 8, g.scroll);
-        e.damage(e.boss ? enemyDmg * 1.5 : enemyDmg);
-      }
-    }
-  }
-
-  _erupt(x, gy) {
-    const g = this.g;
-    g.fx.explosion(x, gy + 1, 1.4, 0);
-    g.audio.play('explode', 1.5);
-    g.shake(0.5);
-    const n = Math.floor(rand(3, 6));
-    for (let i = 0; i < n; i++) {
-      g.addEnemy('meteor', x + rand(-1, 1), gy + 1.5, { vx: rand(-7, 7), vy: rand(20, 30) });
-    }
-  }
-
-  _launchTorpedo(x, y, target) {
-    const g = this.g;
     const obj = createMissile(true);
     obj.scale.setScalar(1.3);
-    obj.position.set(x, y, 0.4);
+    obj.position.set(x, y, z);
+    obj.rotation.z = heading;
     g.scene.add(obj);
-    const tx = target && !target.dead ? target.x : g.player.x;
-    const ty = target && !target.dead ? target.y : g.player.y;
-    this.torpedoes.push({ obj, x, y, target, heading: Math.atan2(ty - y, tx - x), speed: 8, life: 4.5, age: 0 });
-    g.fx.explosion(x, y, 0.5, 0);
+    this.torpedoes.push({ obj, x, y, z, z0: z, vx: Math.cos(heading) * speed, vy: Math.sin(heading) * speed, life: 4, age: 0 });
+    g.fx.explosion(x, y, 0.5, 0, z);
     g.audio.play('missile');
   }
 
@@ -219,39 +224,35 @@ export class Hazards {
       const t = this.torpedoes[i];
       t.age += dt;
       t.life -= dt;
-      const tgt = t.target && !t.target.dead && (t.target !== g.player || g.player.alive) ? t.target : null;
-      if (tgt && t.age < 1.6) {
-        const want = Math.atan2(tgt.y - t.y, tgt.x - t.x);
-        let d = want - t.heading;
-        while (d > Math.PI) d -= Math.PI * 2;
-        while (d < -Math.PI) d += Math.PI * 2;
-        t.heading += Math.max(-dt * 1.5, Math.min(dt * 1.5, d));
-      }
-      t.speed = Math.min(34, t.speed + dt * 40);
-      t.x += (g.scroll + Math.cos(t.heading) * t.speed) * dt;
-      t.y += Math.sin(t.heading) * t.speed * dt;
-      t.obj.position.set(t.x, t.y, 0.4);
-      t.obj.rotation.z = t.heading;
-      g.fx.trail(t.x - Math.cos(t.heading), t.y - Math.sin(t.heading), g.scroll * 0.9, 0, 1.1, true);
+      // Straight-line flight in the world frame; it leaves the rooftop and moves out to the
+      // battle plane (z = 0) over its first half second.
+      t.x += t.vx * dt;
+      t.y += t.vy * dt;
+      t.z = t.z0 * Math.max(0, 1 - t.age / 0.45);
+      t.obj.position.set(t.x, t.y, t.z);
+      g.fx.trail(t.x - t.vx * 0.03, t.y - t.vy * 0.03, 0, 0, 1.1, true);
       let hit = false;
-      const p = g.player;
-      if (p.alive && p.hitTest(t.x, t.y, 0.5)) {
-        p.hurt(16);
-        hit = true;
-      } else {
-        for (const e of g.enemies) {
-          if (e.dead || e.dying > 0 || !e.air || e.kind === 'rocket') continue;
-          if (e.hitTest(t.x, t.y, 0.5)) {
-            e.damage(e.boss ? 14 : 10);
-            hit = true;
-            break;
+      if (t.z > -1.5) {
+        const p = g.player;
+        if (p.alive && p.hitTest(t.x, t.y, 0.5)) {
+          p.hurt(16);
+          hit = true;
+        } else {
+          for (const e of g.enemies) {
+            if (e.dead || e.dying > 0 || e.kind === 'rocket' || e.kind === 'meteor') continue;
+            if (e.hitTest(t.x, t.y, 0.5)) {
+              e.damage(e.boss ? 14 : 10);
+              hit = true;
+              break;
+            }
           }
         }
       }
-      const off = t.life <= 0 || Math.abs(t.x - g.camX) > g.halfW + 10 || t.y > g.halfH + 10;
-      if (hit || off) {
-        if (hit || t.life <= 0) {
-          g.fx.explosion(t.x, t.y, 1, g.scroll);
+      const grounded = t.z > -1.5 && t.y < g.world.groundY(t.x);
+      const off = t.life <= 0 || Math.abs(t.x - g.camX) > g.halfW + 12 || t.y > g.halfH + 10;
+      if (hit || grounded || off) {
+        if (hit || grounded) {
+          g.fx.explosion(t.x, t.y, 1, 0);
           g.audio.play('explode', 1);
         }
         g.scene.remove(t.obj);
@@ -259,4 +260,12 @@ export class Hazards {
       }
     }
   }
+}
+
+function segDist(px, py, a, b) {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const len = dx * dx + dy * dy || 1;
+  const t = Math.max(0, Math.min(1, ((px - a[0]) * dx + (py - a[1]) * dy) / len));
+  return Math.hypot(px - (a[0] + dx * t), py - (a[1] + dy * t));
 }
