@@ -8,7 +8,7 @@ export const GOD_MISSIONS = 99;
 
 export const UPGRADES = [
   { id: 'armor', name: 'Armor Plating', desc: '+25% max hull per level (and faster self-repair)', max: 5, base: 120 },
-  { id: 'guns', name: 'Cannon Caliber', desc: 'Heavier rounds. Extra barrels at Lv 2 and Lv 4', max: 5, base: 150 },
+  { id: 'guns', name: 'Cannon Caliber', desc: 'Heavier rounds. Extra barrels at Lv 2 and Lv 4 (max 3)', max: 5, base: 150 },
   { id: 'rate', name: 'Fire Control', desc: 'Faster cannon rate of fire', max: 5, base: 130 },
   { id: 'missiles', name: 'Missile Racks', desc: '+2 homing missiles per sortie', max: 5, base: 110 },
   { id: 'bombs', name: 'Bomb Bay', desc: '+2 bombs per sortie and bigger blasts', max: 5, base: 100 },

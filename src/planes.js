@@ -45,11 +45,29 @@ export function getPlane(id) {
   return PLANE_BY_ID[id] || PLANES[0];
 }
 
+export const MAX_STREAMS = 3;
+
+// Barrels from the airframe plus Cannon Caliber Lv 2 and Lv 4, capped at 3 firing paths.
+// Barrels beyond the cap are folded into heavier rounds so no plane loses firepower.
+export function gunLayout(plane, gunsLevel) {
+  const raw = plane.streams + (gunsLevel >= 2 ? 1 : 0) + (gunsLevel >= 4 ? 1 : 0);
+  const streams = Math.min(MAX_STREAMS, raw);
+  return { streams, damageMult: raw / streams };
+}
+
+// Cannon Caliber description that matches what this airframe actually gains.
+export function gunsUpgradeDesc(plane) {
+  if (plane.streams >= MAX_STREAMS) return 'Heavier rounds. Already fitted with the maximum 3 barrels';
+  if (plane.streams === 2) return 'Heavier rounds. Third barrel at Lv 2 (max 3)';
+  return 'Heavier rounds. Extra barrels at Lv 2 and Lv 4 (max 3)';
+}
+
 export function planeStats(plane, up) {
+  const guns = gunLayout(plane, up.guns);
   return {
     maxHp: Math.round(plane.hp * (1 + 0.25 * up.armor)),
-    gunDamage: plane.dmg * (1 + 0.3 * up.guns),
-    gunStreams: Math.min(5, plane.streams + (up.guns >= 2 ? 1 : 0) + (up.guns >= 4 ? 1 : 0)),
+    gunDamage: plane.dmg * (1 + 0.3 * up.guns) * guns.damageMult,
+    gunStreams: guns.streams,
     fireInterval: plane.interval * Math.pow(0.88, up.rate),
     missiles: plane.missiles + 2 * up.missiles,
     salvo: plane.salvo,

@@ -2,7 +2,7 @@
 import {
   UPGRADES, upgradeCost, writeSave, defaultSave, emptyUpgrades, loadSave, applyGod, setGodEnabled,
 } from './save.js';
-import { PLANES, planeRatings } from './planes.js';
+import { PLANES, planeRatings, gunsUpgradeDesc } from './planes.js';
 import { missionInfo } from './director.js';
 import { BOSS_NAMES } from './enemies.js';
 
@@ -397,7 +397,7 @@ export class UI {
       const h = document.createElement('h3');
       h.textContent = up.name.toUpperCase();
       const p = document.createElement('p');
-      p.textContent = up.desc;
+      p.textContent = up.id === 'guns' ? gunsUpgradeDesc(plane) : up.desc;
       const pips = document.createElement('div');
       pips.className = 'pips';
       for (let i = 0; i < up.max; i++) {

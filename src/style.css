@@ -205,10 +205,10 @@ button {
   border: 1px solid var(--panel-edge);
 }
 .eyebrow { color: var(--muted); font-size: 11px; letter-spacing: 0.2em; }
-.mission-select { display: grid; grid-template-columns: 40px 1fr 40px; align-items: stretch; gap: 8px; text-align: center; }
-/* Title block is exactly as tall as the arrow buttons: number on the top edge, place name on the bottom edge. */
-.mission-title { display: flex; flex-direction: column; justify-content: space-between; min-width: 0; height: 40px; }
-.mission-num { font-family: var(--display); font-size: 19px; line-height: 19px; letter-spacing: 0.08em; white-space: nowrap; }
+.mission-select { display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; gap: 8px; text-align: center; }
+/* The title starts exactly at the bottom edge of the arrow buttons (cancels the card's 12px gap). */
+.sortie .mission-title { margin-top: -12px; display: flex; flex-direction: column; gap: 6px; text-align: center; min-width: 0; }
+.mission-num { font-family: var(--display); font-size: 22px; line-height: 22px; letter-spacing: 0.08em; white-space: nowrap; }
 .mission-name { color: var(--accent-2); font-weight: 700; font-size: 15px; line-height: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mission-info { text-align: center; }
 .mission-boss { color: var(--muted); font-size: 12px; margin-top: 6px; }
@@ -571,11 +571,10 @@ button {
   .btn { padding: 0.6em 1.2em; }
   .hangar-body { grid-template-columns: 220px 1fr; }
   .plane-role { display: none; }
-  .mission-num { font-size: 15px; line-height: 15px; }
+  .mission-num { font-size: 18px; line-height: 18px; }
   .mission-name { font-size: 13px; line-height: 13px; }
   .mission-select { grid-template-columns: 34px 1fr 34px; }
   .mission-select .icon-btn { width: 34px; height: 34px; }
-  .mission-title { height: 34px; }
   .launch { font-size: 16px; padding: 0.7em; }
   .upgrade p { display: none; }
   .hud-score { font-size: 18px; }
