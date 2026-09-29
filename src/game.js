@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { World } from './world.js';
 import { Effects } from './fx.js';
 import { Weapons } from './weapons.js';
+import { Hazards } from './hazards.js';
 import { Player } from './player.js';
 import { Enemy, BOSS_NAMES } from './enemies.js';
 import { Director, missionInfo, difficulty } from './director.js';
@@ -34,6 +35,18 @@ const HINTS = {
   },
   lava: {
     keyboard: 'Lava bombs! Shoot them down or dodge',
+  },
+  lightning: {
+    keyboard: 'Crackling air means lightning is about to strike there. Move away!',
+  },
+  eruption: {
+    keyboard: 'A glowing vent is about to erupt. Lava hits enemies too',
+  },
+  vigilante: {
+    keyboard: 'Red beacon: vigilantes are launching a torpedo. It targets anything that flies',
+  },
+  searchlight: {
+    keyboard: 'You are in a searchlight! Get out before it locks on, or bomb the tower',
   },
   naval: {
     touch: 'Enemy ships! Tap BOMB to drop bombs on them',
@@ -74,6 +87,7 @@ export class Game {
       this.ui.lightningFlash();
     };
     this.weapons = new Weapons(this);
+    this.hazards = new Hazards(this);
     this.player = new Player(this);
     this.enemies = [];
     this.pickups = [];
@@ -239,6 +253,7 @@ export class Game {
     this.mission = missionInfo(n);
     this.diff = difficulty(n);
     this.director = new Director(this, this.mission);
+    this.hazards.reset(this.mission.map);
     this.world.setup(this.mission.theme, 1000 + n * 7919 + Math.floor(Math.random() * 1000));
     this.scroll = 15;
     this.scrollX = 0;
@@ -265,6 +280,7 @@ export class Game {
     for (const p of this.pickups) this.scene.remove(p.obj);
     this.pickups.length = 0;
     this.weapons.clear();
+    this.hazards.reset(null);
     this.fx.clear();
     this.ui.setBoss(null);
   }
@@ -530,6 +546,7 @@ export class Game {
     this.enemies = this.enemies.filter((e) => !e.dead);
 
     this.weapons.update(dt);
+    this.hazards.update(dt);
     this._updatePickups(dt);
     this.fx.update(dt);
 

@@ -916,3 +916,47 @@ export function createNightwing() {
   root.userData.meshes = [body];
   return root;
 }
+
+// Night-map watchtower with a sweeping searchlight. The beam pivot sits at the lamp
+// and the beam points along +Y; each tower gets its own beam material so it can turn red.
+export function createWatchtower() {
+  const root = new THREE.Group();
+  const steel = '#3a4048';
+  const dark = '#1d2126';
+  const geo = cached('watchtower', () => {
+    const P = [];
+    for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+      P.push(part(box(0.25, 8.6, 0.25), steel, [x * 0.95, 4.2, z * 0.95 - 1.2], [z * 0.05, 0, -x * 0.05]));
+    }
+    P.push(part(box(2.2, 0.2, 0.15), dark, [0, 2.6, -0.25], [0, 0, 0.7]));
+    P.push(part(box(2.2, 0.2, 0.15), dark, [0, 5.4, -0.25], [0, 0, -0.7]));
+    P.push(part(box(3.2, 0.4, 3.2), steel, [0, 8.4, -1.2]));
+    P.push(part(box(3.2, 0.9, 0.12), steel, [0, 9.05, 0.35]));
+    P.push(part(box(2.4, 1.6, 2.2), dark, [0, 9.4, -1.6]));
+    P.push(part(cone(1.8, 0.8, 4), dark, [0, 10.6, -1.6], [0, PI / 4, 0]));
+    P.push(part(cyl(0.55, 0.65, 0.9, 10), '#2a2e33', [0, 9.3, -0.3], [HALF, 0, 0]));
+    P.push(part(cyl(0.5, 0.5, 0.08, 10), '#fff4c0', [0, 9.3, 0.18], [HALF, 0, 0]));
+    return merge(P);
+  });
+  const body = mesh(geo);
+  root.add(body);
+  const beamGeo = cached('beam', () => {
+    const g = new THREE.ConeGeometry(6, 55, 18, 1, true);
+    g.rotateX(PI);
+    g.translate(0, 27.5, 0);
+    return g;
+  });
+  const beamMat = new THREE.MeshBasicMaterial({
+    color: 0xfff1c4, transparent: true, opacity: 0.13, blending: THREE.AdditiveBlending,
+    depthWrite: false, side: THREE.DoubleSide, fog: false,
+  });
+  const pivot = new THREE.Group();
+  pivot.position.set(0, 9.3, 0);
+  const beam = new THREE.Mesh(beamGeo, beamMat);
+  pivot.add(beam);
+  root.add(pivot);
+  root.userData.beamPivot = pivot;
+  root.userData.beamMat = beamMat;
+  root.userData.meshes = [body];
+  return root;
+}

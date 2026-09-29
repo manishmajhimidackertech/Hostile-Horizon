@@ -22,6 +22,11 @@ Fly a jet through enemy territory. Shoot down fighters, interceptors and gunship
   | Metropolis | Skyscraper skyline with lit windows, and a highway battle at dusk |
   | Night Siege | Night raid under sweeping searchlights |
 
+- **Map hazards** that hit you *and* the enemy, each with a short warning so they can be dodged:
+  - *Storm Front*: a crackling spark column marks a coming lightning strike.
+  - *Volcano Ridge*: glowing vents erupt lava balls, and falling lava bombs hurt anything they touch.
+  - *Metropolis*: a red street beacon means vigilantes are launching a homing torpedo at a random aircraft.
+  - *Night Siege*: watchtower searchlights sweep the sky. Stay lit and the beam turns red and fires a missile. Towers can be bombed.
 - **Six aircraft**: F-5 Hawk (starter), V-7 Viper, A-12 Thunderbolt, F-40 Raptor, Su-X Specter and X-1 Nova. They differ in hull, guns, speed and ordnance. The heavier planes repair themselves when out of fire, and the top planes launch missiles in pairs or threes. Each plane has its own five-level upgrade tracks.
 - **Enemies**: fighters (including ones attacking from behind), homing interceptors, gunships with rockets, tanks, time-fused flak guns and naval units.
 - **Seven bosses**, each with its own attack patterns and an enraged second phase below 50% hull. Every map has a signature boss, and the boss rotates each time the map comes round again:

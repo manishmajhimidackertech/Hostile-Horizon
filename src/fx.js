@@ -306,6 +306,11 @@ export class Effects {
     if (Math.random() < 0.6) this.smoke.spawn(x, y, -0.2, vx * 0.8, vy * 0.2 + 1, 0, rnd(0.8, 1.4), 1 * s, 3 * s, COL.smokeDark, COL.smoke, 0.6, 1, 1);
   }
 
+  beacon(x, y) {
+    this.glow.spawn(x, y, 0.6, 0, 0, 0, 0.12, 2.2, 1.2, COL.red, COL.red, 1);
+    this.glow.spawn(x, y, 0.7, 0, 0, 0, 0.1, 0.9, 0.5, COL.white, COL.red, 1);
+  }
+
   plume(x, y, z, s) {
     this.smoke.spawn(x + rnd(-2, 2) * s, y, z, rnd(-1, 1) * s, rnd(3, 6) * s, 0, rnd(5, 8), 6 * s, 22 * s, COL.smokeDark, COL.smoke, 0.55, 0.05, 0.4);
     if (Math.random() < 0.3) this.glow.spawn(x, y + 1, z + 1, rnd(-3, 3) * s, rnd(4, 10) * s, 0, rnd(0.8, 1.6), 5 * s, 2 * s, COL.lava, COL.red, 1, 0.2, -6);

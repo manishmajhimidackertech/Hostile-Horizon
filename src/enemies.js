@@ -3,7 +3,7 @@
 import {
   MAT, createFighter, createDart, createHelicopter, createTank, createFlak,
   createBomber, createAirship, createMissile, createGunboat, createAAShip, createMeteor,
-  createTitan, createBehemoth, createDreadnought, createAce, createNightwing,
+  createTitan, createBehemoth, createDreadnought, createAce, createNightwing, createWatchtower,
 } from './models.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -495,13 +495,76 @@ KINDS.meteor = {
     e.obj.rotation.y += dt * 2;
     e.obj.children[1].scale.setScalar(0.9 + Math.random() * 0.25);
     g.fx.fireTrail(e.x, e.y + 0.5, g.scroll * 0.8, -e.vy * 0.2, 1);
+    // Lava hits anything in the air, enemies included.
+    for (const o of g.enemies) {
+      if (o === e || o.dead || o.dying > 0 || o.kind === 'meteor') continue;
+      if (o.hitTest(e.x, e.y, 1.0)) {
+        o.damage(o.boss ? 10 : 8);
+        g.fx.explosion(e.x, e.y, 1, g.scroll);
+        g.audio.play('explode', 1);
+        e.remove();
+        return;
+      }
+    }
     const gy = g.world.groundY(e.x);
-    if (e.y < gy + 0.5) {
+    if (e.y < gy + 0.5 && e.vy < 0) {
       g.fx.groundBlast(e.x, gy, 1.3, 0);
       g.audio.play('explode', 1);
       g.shake(0.3);
       e.remove();
     }
+  },
+};
+
+// Night-map watchtower: sweeps a searchlight; keep the player lit too long and it fires a missile.
+KINDS.watchtower = {
+  hp: 6, r: 1.5, score: 250, credits: 20, air: false,
+  circles: [[0, 2, 1.3], [0, 5.5, 1.3], [0, 9, 1.6]],
+  build: () => createWatchtower(),
+  init(e, o, g) {
+    e.y = g.world.groundY(e.x);
+    e.beamA = Math.PI * rand(0.45, 0.7);
+    e.sweepT = rand(0, 6);
+    e.lock = 0;
+    e.cool = 1;
+  },
+  update(e, dt, g) {
+    e.y = g.world.groundY(e.x);
+    const u = e.obj.userData;
+    const lx = e.x;
+    const ly = e.y + 9.3;
+    const p = g.player;
+    const toP = Math.atan2(p.y - ly, p.x - lx);
+    let d = toP - e.beamA;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    const lit = p.alive && g.state === 'playing' && Math.abs(d) < 0.12 && Math.hypot(p.x - lx, p.y - ly) < 55 && e.onScreen(-2);
+    if (lit) {
+      e.lock += dt;
+      e.beamA = turnToward(e.beamA, toP, dt * 0.9);
+      g.hint('searchlight');
+    } else {
+      e.lock = Math.max(0, e.lock - dt * 0.8);
+      e.sweepT += dt;
+      e.beamA = turnToward(e.beamA, Math.PI * 0.55 + Math.sin(e.sweepT * 0.7) * 0.45, dt * 0.8);
+    }
+    e.cool -= dt;
+    if (e.lock > 1.1 && e.cool <= 0) {
+      g.addEnemy('rocket', lx, ly + 0.5, { heading: toP });
+      g.fx.muzzle(lx, ly, 0);
+      g.audio.play('missile');
+      g.ui.banner('MISSILE LOCK!', 0.9, 'danger');
+      e.cool = 3;
+      e.lock = 0;
+    } else if (lit && e.lock > 0.35 && !e.beeped) {
+      g.audio.play('beep');
+      e.beeped = true;
+    }
+    if (!lit) e.beeped = false;
+    u.beamPivot.rotation.z = e.beamA - Math.PI / 2;
+    const k = Math.min(1, e.lock / 1.1);
+    u.beamMat.color.setRGB(1, 0.95 - k * 0.8, 0.77 - k * 0.7);
+    u.beamMat.opacity = 0.13 + k * 0.12;
   },
 };
 

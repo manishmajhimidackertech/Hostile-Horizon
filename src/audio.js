@@ -193,6 +193,19 @@ export class AudioEngine {
       case 'win':
         [60, 64, 67, 72].forEach((n, i) => this._osc('triangle', NOTE(n), NOTE(n), 0.3, 0.14, i * 0.12));
         break;
+      case 'crackle':
+        for (let i = 0; i < 6; i++) this._noise(0.05, 0.12, 'highpass', 4000, 3000, 1, i * 0.14 + Math.random() * 0.05);
+        break;
+      case 'strike':
+        this._noise(0.15, 0.9, 'highpass', 2500, 1200);
+        this._noise(2.2, 0.8, 'lowpass', 900, 50, 1, 0.03);
+        break;
+      case 'rumble':
+        this._noise(1.1, 0.4, 'lowpass', 160, 60);
+        break;
+      case 'beep':
+        for (let i = 0; i < 3; i++) this._osc('square', 1175, 1175, 0.07, 0.06, i * 0.13);
+        break;
       case 'thunder': {
         const d = 0.15 + Math.random() * 0.5;
         this._noise(0.25, 0.5, 'highpass', 1800, 900, 1, d);

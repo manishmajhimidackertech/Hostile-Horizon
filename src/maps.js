@@ -3,7 +3,7 @@
 //   scenery  : forest | desert | snow | island | volcanic | city
 //   weather  : rain | snow | sand | ash (camera-space particles)
 //   bosses   : end-of-mission bosses, rotating each time the map comes round again
-//   extras   : lightning, searchlights, naval (ships replace tanks/flak), hazard 'lava' (falling lava bombs)
+//   extras   : lightning, searchlights, naval (ships replace tanks/flak), hazard (lava | lightning | vigilantes | watchtowers, see hazards.js)
 
 export const MAPS = [
   {
@@ -44,8 +44,8 @@ export const MAPS = [
     buildings: ['#9b8b7a', '#7d6f63', '#b1a28f'], windows: '#f4c870', cloud: '#f5f8fb',
   },
   {
-    id: 'storm', bosses: ['airship', 'nightwing', 'titan'], name: 'Storm Front', desc: 'Torrential rain and lightning strikes',
-    terrain: 'hills', scenery: 'forest', weather: 'rain', lightning: true, noSun: true, town: 0.3, clouds: 4,
+    id: 'storm', bosses: ['airship', 'nightwing', 'titan'], name: 'Storm Front', desc: 'Torrential rain. Lightning strikes anything in the air',
+    terrain: 'hills', scenery: 'forest', weather: 'rain', lightning: true, hazard: 'lightning', noSun: true, town: 0.3, clouds: 4,
     fogNear: 30, fogFar: 300,
     skyTop: '#232a33', skyBottom: '#5f6c78', fog: '#56626d',
     hemiSky: '#9aa7b5', hemiGround: '#2a352a', sun: '#c8d0da', sunLight: '#b8c4d4', sunIntensity: 1.0, hemiIntensity: 1.3,
@@ -54,7 +54,7 @@ export const MAPS = [
     buildings: ['#8d8a84', '#7a766f', '#9c988f'], windows: '#f4d27a', cloud: '#5d6670',
   },
   {
-    id: 'volcano', bosses: ['nightwing', 'behemoth', 'bomber'], name: 'Volcano Ridge', desc: 'Erupting volcanoes. Shoot or dodge the falling lava bombs',
+    id: 'volcano', bosses: ['nightwing', 'behemoth', 'bomber'], name: 'Volcano Ridge', desc: 'Erupting vents and lava bombs hit friend and foe alike',
     terrain: 'volcano', scenery: 'volcanic', weather: 'ash', hazard: 'lava', clouds: 2, fogNear: 40, fogFar: 330,
     skyTop: '#241012', skyBottom: '#b8472c', fog: '#6e2e22',
     hemiSky: '#ff9a6a', hemiGround: '#2a1a16', sun: '#ffb080', sunLight: '#ff9a70', sunIntensity: 1.7, hemiIntensity: 1.2,
@@ -63,8 +63,8 @@ export const MAPS = [
     buildings: ['#5a4d45'], windows: '#ff9a4a', cloud: '#3b302d',
   },
   {
-    id: 'city', bosses: ['ace', 'titan', 'airship'], name: 'Metropolis', desc: 'Urban warfare among the skyscrapers at dusk',
-    terrain: 'city', scenery: 'city', lit: true, clouds: 2, fogNear: 15, fogFar: 320,
+    id: 'city', bosses: ['ace', 'titan', 'airship'], name: 'Metropolis', desc: 'Street vigilantes fire torpedoes at anything that flies',
+    hazard: 'vigilantes', terrain: 'city', scenery: 'city', lit: true, clouds: 2, fogNear: 15, fogFar: 320,
     skyTop: '#2b2d5c', skyBottom: '#f39a5d', fog: '#d98a66',
     hemiSky: '#ffc59a', hemiGround: '#40324a', sun: '#ffb070', sunLight: '#ffb58a', sunIntensity: 2.2, hemiIntensity: 1.2,
     ground: ['#7a7a72', '#6f7068', '#85857c', '#727368'], rock: '#6e5b52', high: '#7a7a72', road: '#34353a',
@@ -72,8 +72,8 @@ export const MAPS = [
     buildings: ['#5d6270', '#6d6a73', '#4f5563', '#7a7680', '#8a7f78'], windows: '#ffd27a', windowsOff: '#2a2f3a', cloud: '#ffd2b8',
   },
   {
-    id: 'night', bosses: ['nightwing', 'airship', 'behemoth'], name: 'Night Siege', desc: 'Night raid under sweeping searchlights',
-    terrain: 'hills', scenery: 'forest', night: true, searchlights: true, lit: true, town: 0.5, clouds: 2,
+    id: 'night', bosses: ['nightwing', 'airship', 'behemoth'], name: 'Night Siege', desc: 'Watchtower searchlights. Stay lit too long and a missile launches',
+    hazard: 'watchtowers', terrain: 'hills', scenery: 'forest', night: true, searchlights: true, lit: true, town: 0.5, clouds: 2,
     skyTop: '#060b1c', skyBottom: '#1f3456', fog: '#1b2a45',
     hemiSky: '#6f8fc4', hemiGround: '#1a2230', sun: '#e8eeff', sunLight: '#9fb6ff', sunIntensity: 1.4, hemiIntensity: 1.0,
     ground: ['#2d3f31', '#33473a', '#29392d', '#384b3c'], rock: '#434650', high: '#3b4a3e',
