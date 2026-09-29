@@ -80,7 +80,7 @@
           </div>
           <div class="title-foot">
             <span id="title-best"></span>
-            <span id="title-god" hidden>God mode active · type godmode or tap the logo 7 times to exit</span>
+            <span id="title-god" hidden>Type godmode or tap the logo 7 times to return to normal mode</span>
             <span id="update-note" hidden>Update ready · <button class="link" id="btn-update">Reload</button></span>
           </div>
         </div>
@@ -90,20 +90,20 @@
       <section class="screen" id="screen-hangar">
         <div class="panel wide">
           <header class="panel-head">
-            <button class="icon-btn" id="hangar-back" aria-label="Back">‹</button>
+            <button class="back-btn" id="hangar-back"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Back</button>
             <h2>HANGAR</h2>
             <div class="wallet"><span class="coin"></span><span id="hangar-credits">0</span></div>
           </header>
           <div class="hangar-body">
             <div class="sortie">
-              <div class="mission-select">
-                <button class="icon-btn" id="mission-prev" aria-label="Previous mission">‹</button>
-                <div class="eyebrow">NEXT SORTIE</div>
-                <button class="icon-btn" id="mission-next" aria-label="Next mission">›</button>
-              </div>
               <div class="mission-title">
+                <div class="eyebrow">NEXT SORTIE</div>
                 <div class="mission-num" id="mission-num">MISSION 1</div>
-                <div class="mission-name" id="mission-name">Verdant Valley</div>
+                <div class="mission-select">
+                  <button class="icon-btn" id="mission-prev" aria-label="Previous mission">‹</button>
+                  <div class="mission-name" id="mission-name">Verdant Valley</div>
+                  <button class="icon-btn" id="mission-next" aria-label="Next mission">›</button>
+                </div>
               </div>
               <div class="mission-info">
                 <div class="mission-desc" id="mission-desc"></div>
@@ -139,12 +139,12 @@
       <section class="screen" id="screen-help">
         <div class="panel">
           <header class="panel-head">
-            <button class="icon-btn" data-back aria-label="Back">‹</button>
+            <button class="back-btn" data-back><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Back</button>
             <h2>HOW TO PLAY</h2>
             <span></span>
           </header>
           <div class="help-body">
-            <p>Fly through each sortie, shoot down enemy aircraft and bomb ground targets. Survive to the end and destroy the heavy target to win. Spend credits in the hangar on new aircraft, and upgrade each one separately.</p>
+            <h3>Controls</h3>
             <table class="controls">
               <thead><tr><th></th><th>Keyboard</th><th>Mouse</th><th>Touch</th><th>Gamepad</th></tr></thead>
               <tbody>
@@ -173,7 +173,7 @@
       <section class="screen" id="screen-settings">
         <div class="panel">
           <header class="panel-head">
-            <button class="icon-btn" data-back aria-label="Back">‹</button>
+            <button class="back-btn" data-back><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Back</button>
             <h2>SETTINGS</h2>
             <span></span>
           </header>
