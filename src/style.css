@@ -342,7 +342,6 @@ button {
 
 /* ------------------------------------------------------------------ help / settings */
 
-.help-body h3 { margin: 0; font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent-2); }
 .controls { width: 100%; border-collapse: collapse; font-size: 13px; margin: 8px 0 14px; display: block; overflow-x: auto; }
 .controls th, .controls td { padding: 7px 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.07); text-align: left; white-space: nowrap; }
 .controls thead th { color: var(--muted); font-weight: 600; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; }
