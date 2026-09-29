@@ -253,12 +253,15 @@ export class Weapons {
     // Bombs
     for (let i = this.bombs.length - 1; i >= 0; i--) {
       const b = this.bombs[i];
+      // Gravity plus light air drag on both axes.
       b.vy -= 30 * dt;
-      b.vx += (g.scroll - b.vx) * Math.min(1, dt * 0.4);
+      b.vx *= 1 - 0.08 * dt;
+      b.vy *= 1 - 0.08 * dt;
       b.x += b.vx * dt;
       b.y += b.vy * dt;
       b.obj.position.set(b.x, b.y, 0.3);
-      b.obj.rotation.z = Math.atan2(b.vy, Math.max(1, b.vx - g.scroll * 0.6));
+      // Point along the true (world) flight path.
+      b.obj.rotation.z = Math.atan2(b.vy, Math.max(1, b.vx));
       const gy = world.groundY(b.x);
       let boom = b.y <= gy + 0.3;
       if (!boom) {

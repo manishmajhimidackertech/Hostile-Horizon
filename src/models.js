@@ -320,6 +320,7 @@ export function createHelicopter() {
   ])));
   tail.position.set(-5.05, 0.9, 0.2);
   model.add(tail);
+  root.userData.model = model;
   root.userData.rotor = rotor;
   root.userData.tailRotor = tail;
   root.userData.meshes = [body, rotor, tail];
@@ -329,8 +330,7 @@ export function createHelicopter() {
 export function createBomber() {
   const root = new THREE.Group();
   const model = new THREE.Group();
-  model.rotation.y = PI;
-  model.rotation.x = -0.3;
+  model.rotation.x = 0.3;
   root.add(model);
   const hull = '#59614e';
   const dark = '#2c3127';
@@ -396,6 +396,7 @@ function makeTurret(parent, pos, scale, twin = true) {
 export function createAirship() {
   const root = new THREE.Group();
   const model = new THREE.Group();
+  model.rotation.y = PI;
   model.rotation.x = -0.12;
   root.add(model);
   const skin = '#7c7564';
@@ -433,10 +434,10 @@ export function createAirship() {
     props.push(p);
   }
   const turrets = [
-    makeTurret(model, [-4.5, -6.5, 0.4], 0.8),
-    makeTurret(model, [2.5, -6.5, 0.4], 0.8),
-    makeTurret(model, [-7, 4.1, 0.6], 0.9),
-    makeTurret(model, [5, 4.1, 0.6], 0.9),
+    makeTurret(model, [-4.5, -6.5, -0.4], 0.8),
+    makeTurret(model, [2.5, -6.5, -0.4], 0.8),
+    makeTurret(model, [-7, 4.1, -0.6], 0.9),
+    makeTurret(model, [5, 4.1, -0.6], 0.9),
   ];
   root.userData.props = props;
   root.userData.turrets = turrets;
@@ -779,9 +780,12 @@ function bossGun(parent, pos, type, scale = 1) {
   return { pivot, pos: [pos[0], pos[1]], type, mesh: barrel };
 }
 
-// Heavy twin-rotor gunship, facing -X.
+// Heavy twin-rotor gunship (geometry built facing -X, mirrored to fly facing +X).
 export function createTitan() {
   const root = new THREE.Group();
+  const model = new THREE.Group();
+  model.rotation.y = PI; // built facing -X, flies facing +X
+  root.add(model);
   const hull = '#4d5347';
   const dark = '#23271f';
   const geo = cached('titan', () => merge([
@@ -798,7 +802,7 @@ export function createTitan() {
     part(box(1.4, 0.35, 2.8), '#c9b24a', [1.6, 0.4, 0]),
   ]));
   const body = mesh(geo);
-  root.add(body);
+  model.add(body);
   const rotorGeo = cached('titan:rotor', () => merge([
     part(box(11, 0.08, 0.5), '#16180f'),
     part(box(0.5, 0.08, 11), '#16180f'),
@@ -807,19 +811,22 @@ export function createTitan() {
   const rotors = [[-4.2, 3.1], [4.4, 3.8]].map(([x, y]) => {
     const r = mesh(rotorGeo);
     r.position.set(x, y, 0);
-    root.add(r);
+    model.add(r);
     return r;
   });
-  const guns = [bossGun(root, [-5.9, -1.3, 0.4], 'minigun', 0.9)];
+  const guns = [bossGun(model, [-5.9, -1.3, -0.4], 'minigun', 0.9)];
   root.userData.rotors = rotors;
   root.userData.guns = guns;
   root.userData.meshes = [body, ...rotors, ...guns.map((g) => g.mesh)];
   return root;
 }
 
-// Land fortress super-tank, facing -X. Base at y = 0.
+// Land fortress super-tank (built facing -X, mirrored to drive facing +X). Base at y = 0.
 export function createBehemoth() {
   const root = new THREE.Group();
+  const model = new THREE.Group();
+  model.rotation.y = PI; // built facing -X, travels facing +X
+  root.add(model);
   const hull = '#5a5f3f';
   const dark = '#23251a';
   const geo = cached('behemoth', () => {
@@ -841,20 +848,23 @@ export function createBehemoth() {
     return merge(P);
   });
   const body = mesh(geo);
-  root.add(body);
+  model.add(body);
   const guns = [
-    bossGun(root, [-2.2, 6.1, 0], 'main', 1.1),
-    bossGun(root, [3.2, 5.4, 1.2], 'flak'),
-    bossGun(root, [-5.2, 3.6, 1.6], 'flak'),
+    bossGun(model, [-2.2, 6.1, 0], 'main', 1.1),
+    bossGun(model, [3.2, 5.4, -1.2], 'flak'),
+    bossGun(model, [-5.2, 3.6, -1.6], 'flak'),
   ];
   root.userData.guns = guns;
   root.userData.meshes = [body, ...guns.map((g) => g.mesh)];
   return root;
 }
 
-// Battleship, facing -X. Waterline at y = 0.
+// Battleship (built facing -X, mirrored to sail facing +X). Waterline at y = 0.
 export function createDreadnought() {
   const root = new THREE.Group();
+  const model = new THREE.Group();
+  model.rotation.y = PI; // built facing -X, travels facing +X
+  root.add(model);
   const hull = '#5c6770';
   const dark = '#2a3036';
   const geo = cached('dreadnought', () => merge([
@@ -872,13 +882,13 @@ export function createDreadnought() {
     ...[-7.2, -3.8, 8.4].map((x) => part(cyl(1.4, 1.6, 0.9, 10), dark, [x, 2.2, 0])),
   ]));
   const body = mesh(geo);
-  root.add(body);
+  model.add(body);
   const guns = [
-    bossGun(root, [-7.2, 2.9, 0], 'main'),
-    bossGun(root, [-3.8, 2.9, 0], 'main'),
-    bossGun(root, [8.4, 2.9, 0], 'main'),
-    bossGun(root, [-1.9, 5.3, 1.7], 'flak'),
-    bossGun(root, [2.9, 5.3, 1.7], 'flak'),
+    bossGun(model, [-7.2, 2.9, 0], 'main'),
+    bossGun(model, [-3.8, 2.9, 0], 'main'),
+    bossGun(model, [8.4, 2.9, 0], 'main'),
+    bossGun(model, [-1.9, 5.3, -1.7], 'flak'),
+    bossGun(model, [2.9, 5.3, -1.7], 'flak'),
   ];
   root.userData.guns = guns;
   root.userData.meshes = [body, ...guns.map((g) => g.mesh)];

@@ -64,17 +64,17 @@ export class Hazards {
     if (this.t > 0) return;
     switch (this.type) {
       case 'lightning':
-        this.pending = { rel: this._pickTargetRel(0.55), timer: 1.0 };
+        this.pending = this._anchor(this._pickTargetRel(0.55), 1.0);
         g.audio.play('crackle');
         g.hint('lightning');
         break;
       case 'lava':
-        this.pending = { rel: this._pickTargetRel(0.4), timer: 1.1 };
+        this.pending = this._anchor(this._pickTargetRel(0.4), 1.1);
         g.audio.play('rumble');
         g.hint('eruption');
         break;
       case 'vigilantes': {
-        this.pending = { rel: g.halfW * rand(-0.75, 0.85), timer: 0.9, target: this._pickVictim() };
+        this.pending = { ...this._anchor(g.halfW * rand(-0.75, 0.85), 0.9), target: this._pickVictim() };
         g.audio.play('beep');
         g.hint('vigilante');
         break;
@@ -86,6 +86,13 @@ export class Hazards {
       default:
         return;
     }
+  }
+
+  // Ground-anchored hazards are fixed in the world. Aircraft keep pace with the camera,
+  // so place the spot where the target will be when the timer runs out.
+  _anchor(rel, timer) {
+    const g = this.g;
+    return { x: g.camX + rel + g.scroll * timer, timer };
   }
 
   // Aim near the player some of the time, otherwise near an enemy or a random spot.
@@ -111,7 +118,7 @@ export class Hazards {
     const g = this.g;
     const p = this.pending;
     p.timer -= dt;
-    const x = g.camX + p.rel;
+    const x = p.x;
     const gy = g.world.groundY(x);
     if (this.type === 'lightning') {
       const a = this.warn.geometry.attributes.position.array;
@@ -121,7 +128,7 @@ export class Hazards {
       this.warn.visible = Math.random() < 0.75;
       this.warn.material.opacity = 0.2 + Math.random() * 0.45;
       // A crackling column of blue sparks marks where the bolt will land.
-      for (let i = 0; i < 3; i++) g.fx.exhaust(x + rand(-0.6, 0.6), rand(gy, g.halfH), g.scroll * 0.2, rand(-2, 2), 1.4, 'blue');
+      for (let i = 0; i < 3; i++) g.fx.exhaust(x + rand(-0.6, 0.6), rand(gy, g.halfH), 0, rand(-2, 2), 1.4, 'blue');
       if (Math.random() < 0.4) g.fx.sparks(x, gy + rand(0, 1.5), 2, 0);
       if (p.timer <= 0) this._strike(x, gy);
     } else if (this.type === 'lava') {
@@ -130,7 +137,7 @@ export class Hazards {
       if (p.timer <= 0) this._erupt(x, gy);
     } else if (this.type === 'vigilantes') {
       if (Math.floor(p.timer * 8) % 2 === 0) g.fx.beacon(x, gy + 0.6);
-      if (p.timer <= 0) this._launchTorpedo(x, gy + 0.8, p.target);
+      if (p.timer <= 0 && Math.abs(x - g.camX) < g.halfW + 2) this._launchTorpedo(x, gy + 0.8, p.target);
     }
     if (p.timer <= 0) {
       this.pending = null;

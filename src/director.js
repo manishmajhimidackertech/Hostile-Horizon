@@ -163,7 +163,8 @@ export class Director {
     this.hazardT = rand(4, 8) / Math.min(1.6, 1 + this.mission.number * 0.03);
     const n = randi(1, this.mission.number >= 6 ? 3 : 2);
     for (let i = 0; i < n; i++) {
-      g.addEnemy('meteor', g.camX + rand(-0.2, 1.1) * g.halfW, g.halfH + 5 + i * 4, { vx: rand(-9, -2), vy: rand(-6, -2) });
+      // World-frame ballistic: the screen scrolls ~40 units while it falls, so drop it ahead.
+      g.addEnemy('meteor', g.camX + rand(0.4, 1.7) * g.halfW, g.halfH + 5 + i * 4, { vx: rand(-9, -2), vy: rand(-6, -2) });
     }
     g.hint('lava');
   }

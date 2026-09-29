@@ -405,7 +405,8 @@ export class Game {
     const obj = createPickup(kind);
     obj.position.set(x, y, 0.5);
     this.scene.add(obj);
-    this.pickups.push({ kind, obj, x, y, vy: rand(3, 8), vx: rand(-3, 3), age: 0 });
+    // Debris keeps some forward momentum (world frame), then air drag slows it.
+    this.pickups.push({ kind, obj, x, y, vy: rand(3, 8), vx: this.scroll * 0.6 + rand(-3, 3), age: 0 });
   }
 
   _updatePickups(dt) {
@@ -413,14 +414,16 @@ export class Game {
     for (let i = this.pickups.length - 1; i >= 0; i--) {
       const it = this.pickups[i];
       it.age += dt;
-      it.vy -= 7 * dt;
-      it.vx *= 1 - dt * 1.5;
-      it.x += (this.scroll - 3 + it.vx) * dt;
+      // Light crates fall slowly (terminal velocity) and drift in the world frame.
+      it.vy = Math.max(-7, it.vy - 7 * dt);
+      it.vx *= 1 - dt * 0.5;
+      it.x += it.vx * dt;
       it.y += it.vy * dt;
       const gy = this.world.groundY(it.x) + 1.2;
-      if (it.y < gy) {
+      if (it.y <= gy) {
         it.y = gy;
-        it.vy = Math.abs(it.vy) * 0.3;
+        it.vy = it.vy < -2 ? -it.vy * 0.3 : 0;
+        it.vx *= 1 - Math.min(1, dt * 6);
       }
       if (p.alive) {
         const dx = p.x - it.x;
