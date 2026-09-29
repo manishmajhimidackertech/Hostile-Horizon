@@ -808,6 +808,43 @@ KINDS.dreadnought = {
 // Enemy ace: a real flight model. It has a heading and airspeed in the world frame and
 // can only turn and accelerate at finite rates, so every manoeuvre is a curve. It orbits
 // ahead of the player, lines up, dives in with guns firing along its nose, then pulls out.
+const ACE_TURN_ACCEL = 8; // rad/s^2: how fast the pilot can roll into or out of a turn
+const ACE_SAFE_ALT = 7; // never aims lower than this above the ground
+const ACE_PULL_SPEED = 28; // throttles back to this in a pull-out to tighten the turn
+// How far the airframe reaches below its centre: the nose sticks down in a dive.
+const aceBelly = (heading) => 1.2 + 3.8 * Math.abs(Math.sin(heading));
+
+// One step of the ace's flight dynamics: the turn rate eases toward what is needed
+// (proportional near the target, capped by the load limit a = v * omega <= 80, with a
+// finite roll-in rate) instead of snapping, so the flight path is always a clean curve.
+function aceSteer(st, want, turn, wantSpeed, dt) {
+  const maxTurn = Math.min(turn, 80 / Math.max(st.speed, 1));
+  const wantRate = clamp(angleDiff(want, st.heading) * 3, -maxTurn, maxTurn);
+  st.turnRate += clamp(wantRate - st.turnRate, -dt * ACE_TURN_ACCEL, dt * ACE_TURN_ACCEL);
+  st.heading = angleDiff(st.heading + st.turnRate * dt, 0);
+  st.speed += clamp(wantSpeed - st.speed, -dt * 22, dt * 22);
+}
+
+const acePullWant = (heading) => (Math.cos(heading) >= 0 ? 0.7 : Math.PI - 0.7);
+
+// Flies a full-effort pull-out from the ace's current state (heading, turn rate, speed)
+// over the real terrain ahead and returns the tightest gap between its belly and the ground.
+function acePullOutClearance(e, world) {
+  const st = { heading: e.heading, turnRate: e.turnRate, speed: e.speed };
+  const want = acePullWant(e.heading);
+  let x = e.x;
+  let y = e.y;
+  let low = y - world.groundY(x) - aceBelly(st.heading);
+  const step = 1 / 40;
+  for (let t = 0; t < 2.5; t += step) {
+    aceSteer(st, want, 3.2, ACE_PULL_SPEED, step);
+    x += Math.cos(st.heading) * st.speed * step;
+    y += Math.sin(st.heading) * st.speed * step;
+    low = Math.min(low, y - world.groundY(x) - aceBelly(st.heading));
+  }
+  return low;
+}
+
 KINDS.ace = {
   hp: 75, r: 2, score: 3500, credits: 350, air: true, boss: true, headingModel: true, name: 'Crimson Ace',
   circles: [[0, 0, 1.9]],
@@ -822,11 +859,27 @@ KINDS.ace = {
     e.wingmen = false;
     e.ram = 0;
     e.orbitT = 0;
+    e.turnRate = 0;
+    e.pullUp = false;
+    e.aimRel = null;
+    e.aimY = 0;
   },
   update(e, dt, g) {
     const p = g.player;
+    const world = g.world;
     const phase2 = e.hp < e.maxHp * 0.5;
     const rate = g.diff.rate * (phase2 ? 1.3 : 1);
+    // The pilot tracks a smoothed picture of the player (camera-relative, so the scroll adds
+    // no lag), not every twitch of the player's stick, and never aims into the ground.
+    if (e.aimRel === null) {
+      e.aimRel = p.x - g.camX;
+      e.aimY = p.y;
+    }
+    const follow = 1 - Math.exp(-dt / 0.3);
+    e.aimRel += (p.x - g.camX - e.aimRel) * follow;
+    e.aimY += (p.y - e.aimY) * follow;
+    const aimX = g.camX + e.aimRel;
+    const aimY = Math.max(e.aimY, world.groundY(aimX) + ACE_SAFE_ALT);
     let want;
     let wantSpeed;
     let turn;
@@ -835,7 +888,7 @@ KINDS.ace = {
       // so lead it by the scroll speed).
       e.orbitT += dt * (phase2 ? 0.55 : 0.45);
       const tx = g.camX + g.halfW * 0.3 + Math.cos(e.orbitT) * g.halfW * 0.35;
-      const ty = 4 + Math.sin(e.orbitT * 2) * Math.min(11, g.halfH - 9);
+      const ty = Math.max(4 + Math.sin(e.orbitT * 2) * Math.min(11, g.halfH - 9), world.groundY(tx) + 10);
       want = Math.atan2(ty - e.y, tx + g.scroll * 0.8 - e.x);
       wantSpeed = phase2 ? 34 : 30;
       turn = 2.0;
@@ -847,7 +900,7 @@ KINDS.ace = {
       }
     } else if (e.state === 'aim') {
       // Bleed a little speed and swing the nose onto the player.
-      want = Math.atan2(p.y - e.y, p.x + g.scroll * 0.4 - e.x);
+      want = Math.atan2(aimY - e.y, aimX + g.scroll * 0.4 - e.x);
       wantSpeed = 24;
       turn = 2.6;
       e.stateT -= dt;
@@ -858,7 +911,7 @@ KINDS.ace = {
       }
     } else {
       // Full-throttle attack run with limited turning: committed, so it can be dodged.
-      want = Math.atan2(p.y - e.y, p.x + g.scroll * 0.3 - e.x);
+      want = Math.atan2(aimY - e.y, aimX + g.scroll * 0.3 - e.x);
       wantSpeed = 52;
       turn = 0.8;
       e.stateT -= dt;
@@ -874,27 +927,34 @@ KINDS.ace = {
       want = Math.atan2(4 - e.y, g.camX + g.scroll * 0.8 - e.x);
       turn = 2.6;
     }
-    // Pull up before the ground (earlier when fast, since turning radius grows with speed).
-    const floor = g.world.groundY(e.x) + 6 + e.speed * 0.2;
-    if (e.y < floor) {
-      want = Math.cos(e.heading) >= 0 ? 0.8 : Math.PI - 0.8;
+    // Terrain avoidance: the pull-out radius grows with speed, so rather than a fixed floor,
+    // rehearse a full-effort pull-out from the current state every frame and commit to it
+    // as soon as that would only just clear the ground ahead. Keep pulling until climbing
+    // with room to spare, so it doesn't flip back and forth at the limit.
+    const clearance = acePullOutClearance(e, world);
+    e.pullUp = e.pullUp ? clearance < 6 || Math.sin(e.heading) < 0.1 : clearance < 3;
+    if (e.pullUp) {
+      want = acePullWant(e.heading);
       turn = 3.2;
+      wantSpeed = Math.min(wantSpeed, ACE_PULL_SPEED);
+      if (e.state === 'dash') {
+        e.state = 'fly';
+        e.stateT = rand(4, 6) / rate;
+        e.ram = 0;
+      }
     }
-    // Turn rate is limited by the load the airframe can take: a = v * omega <= 80.
-    turn = Math.min(turn, 80 / Math.max(e.speed, 1));
-    const prev = e.heading;
-    e.heading = turnToward(e.heading, want, dt * turn);
-    const yawRate = angleDiff(e.heading, prev) / Math.max(dt, 1e-4);
-    e.speed += clamp(wantSpeed - e.speed, -dt * 22, dt * 22);
+    aceSteer(e, want, turn, wantSpeed, dt);
     const vx = Math.cos(e.heading) * e.speed;
     const vy = Math.sin(e.heading) * e.speed;
     e.x += vx * dt;
     e.y += vy * dt;
+    // Last resort only (the pull-out above should always win): never sink into the terrain.
+    e.y = Math.max(e.y, world.groundY(e.x) + aceBelly(e.heading));
     e.vy = vy;
     e.worldVx = vx;
     e.obj.rotation.z = e.heading;
     // Bank into turns.
-    const roll = clamp(-yawRate * 0.45, -1.3, 1.3);
+    const roll = clamp(-e.turnRate * 0.45, -1.3, 1.3);
     e.obj.rotation.x += (roll - e.obj.rotation.x) * Math.min(1, dt * 5);
     e.obj.userData.flame.scale.x = 0.9 + (e.speed - 20) / 25 + Math.random() * 0.3;
     if (e.state === 'dash' && Math.random() < 0.7) g.fx.exhaust(e.x - Math.cos(e.heading) * 3, e.y - Math.sin(e.heading) * 3, vx * 0.5, vy * 0.5, 1.2);
