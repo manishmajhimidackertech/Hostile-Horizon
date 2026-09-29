@@ -1,14 +1,32 @@
 // The player's jet: movement from any input device, cannons, missiles and bombs.
-import { createPlayerJet } from './models.js';
+import { createPlaneModel } from './models.js';
+import { getPlane } from './planes.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 export class Player {
   constructor(game) {
     this.game = game;
-    this.obj = createPlayerJet();
-    game.scene.add(this.obj);
+    this.obj = null;
+    this.planeId = null;
+    this.setPlane('hawk');
     this.reset(null);
+  }
+
+  setPlane(id) {
+    if (id === this.planeId && this.obj) return;
+    const plane = getPlane(id);
+    const prev = this.obj;
+    this.planeId = plane.id;
+    this.plane = plane;
+    this.obj = createPlaneModel(plane.id, plane.flame);
+    if (prev) {
+      this.obj.position.copy(prev.position);
+      this.obj.rotation.copy(prev.rotation);
+      this.obj.visible = prev.visible;
+      this.game.scene.remove(prev);
+    }
+    this.game.scene.add(this.obj);
   }
 
   reset(stats) {
@@ -20,9 +38,9 @@ export class Player {
     this.hp = stats ? stats.maxHp : 100;
     this.maxHp = this.hp;
     this.invuln = 0;
+    this.sinceHit = 99;
     this.fireT = 0;
     this.bombT = 0;
-    this.missileSide = 1;
     this.missiles = stats ? stats.missiles : 0;
     this.bombs = stats ? stats.bombs : 0;
     this.alive = true;
@@ -45,6 +63,7 @@ export class Player {
     if (!this.alive || this.invuln > 0 || g.state !== 'playing') return;
     this.hp -= amount;
     this.invuln = 0.7;
+    this.sinceHit = 0;
     g.shake(0.6);
     g.audio.play('hurt');
     g.ui.damageFlash();
@@ -72,7 +91,7 @@ export class Player {
     this.vyRel = (ny - this.y) / Math.max(dt, 1e-3);
     this.y = ny;
     this._pose(dt);
-    if (Math.random() < 0.8) g.fx.exhaust(this.x - 2.6, this.y, g.scroll * 0.8, 0);
+    if (Math.random() < 0.8) g.fx.exhaust(this.x - 2.6, this.y, g.scroll * 0.8, 0, 1, this.plane.flame);
   }
 
   update(dt) {
@@ -136,6 +155,9 @@ export class Player {
     }
 
     this.invuln = Math.max(0, this.invuln - dt);
+    // Self-repair kicks in after a few seconds without taking damage.
+    this.sinceHit += dt;
+    if (s.regen > 0 && this.sinceHit > 2.5 && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + s.regen * dt);
     this.obj.visible = this.invuln <= 0 || Math.floor(this.invuln * 20) % 2 === 0;
     this._pose(dt);
 
@@ -149,7 +171,7 @@ export class Player {
       const streams = s.gunStreams;
       for (let i = 0; i < streams; i++) {
         const off = streams === 1 ? 0 : (i / (streams - 1) - 0.5);
-        const spread = streams === 3 ? off * 0.14 : off * 0.04;
+        const spread = streams === 2 ? off * 0.04 : off * 0.07 * (streams - 1);
         g.weapons.playerBullet(nx, ny + off * 0.9, pitch + spread, 72, s.gunDamage);
       }
       g.stats.shots++;
@@ -159,8 +181,10 @@ export class Player {
     if (input.missilePressed()) {
       if (this.missiles > 0) {
         this.missiles--;
-        this.missileSide *= -1;
-        g.weapons.missile(this.x, this.y - 0.4, this.vxRel, this.vyRel, 7);
+        for (let i = 0; i < s.salvo; i++) {
+          const off = (i - (s.salvo - 1) / 2) * 1.1;
+          g.weapons.missile(this.x - Math.abs(off) * 0.5, this.y - 0.4 + off, this.vxRel, this.vyRel + off * 4, s.missileDamage);
+        }
       } else g.audio.play('deny');
     }
     this.bombT -= dt;
@@ -168,14 +192,14 @@ export class Player {
       if (this.bombs > 0 && this.bombT <= 0) {
         this.bombs--;
         this.bombT = 0.25;
-        g.weapons.bomb(this.x - 0.3, this.y - 0.8, g.scroll + this.vxRel * 0.5, Math.min(0, this.vyRel * 0.3) - 2, s.bombRadius, 14);
+        g.weapons.bomb(this.x - 0.3, this.y - 0.8, g.scroll + this.vxRel * 0.5, Math.min(0, this.vyRel * 0.3) - 2, s.bombRadius, s.bombDamage);
       } else if (this.bombs <= 0) g.audio.play('deny');
     }
 
     // Exhaust and damage smoke.
     const bx = this.x - 2.4 * Math.cos(pitch);
     const by = this.y - 2.4 * Math.sin(pitch);
-    g.fx.exhaust(bx, by, g.scroll * 0.7, 0, 1, true);
+    g.fx.exhaust(bx, by, g.scroll * 0.7, 0, 1, this.plane.flame);
     if (this.hp < this.maxHp * 0.35 && Math.random() < 0.5) g.fx.damageSmoke(bx, by, g.scroll * 0.6, this.hp < this.maxHp * 0.18);
   }
 
@@ -185,7 +209,10 @@ export class Player {
     const roll = clamp(-this.vyRel * 0.035, -0.8, 0.8);
     this.obj.rotation.x += (roll - this.obj.rotation.x) * Math.min(1, dt * 6);
     this.obj.position.set(this.x, this.y, 0);
-    const flame = this.obj.userData.flame;
-    flame.scale.set(0.9 + Math.max(0, this.vxRel) * 0.03 + Math.random() * 0.3, 1, 1);
+    const boost = 0.9 + Math.max(0, this.vxRel) * 0.03;
+    for (const f of this.obj.userData.flames) {
+      const b = f.userData.baseScale;
+      f.scale.set(b * (boost + Math.random() * 0.3), b, b);
+    }
   }
 }

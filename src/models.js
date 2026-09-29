@@ -126,12 +126,7 @@ function buildJet(pal, facing, scale = 1) {
   root.add(model);
   const body = mesh(cached('jet:' + pal.body, () => jetGeometry(pal)));
   model.add(body);
-  const flame = new THREE.Mesh(cached('flame', () => {
-    const g = cone(0.36, 1.6, 8);
-    g.rotateZ(HALF);
-    g.translate(-0.8, 0, 0);
-    return g;
-  }), MAT.glow);
+  const flame = new THREE.Mesh(flameGeometry(), MAT.glow);
   flame.position.x = -2.2;
   model.add(flame);
   root.userData.flame = flame;
@@ -139,8 +134,143 @@ function buildJet(pal, facing, scale = 1) {
   return root;
 }
 
-export function createPlayerJet() {
-  return buildJet(PALETTES.player, 1, 1);
+// ---------------------------------------------------------------- player aircraft
+
+const FLAME_MATS = { orange: MAT.glow, blue: MAT.glowBlue };
+MAT.glowGreen = new THREE.MeshBasicMaterial({
+  color: 0x6dffc0,
+  transparent: true,
+  opacity: 0.9,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+});
+FLAME_MATS.green = MAT.glowGreen;
+
+function flameGeometry() {
+  return cached('flame', () => {
+    const g = cone(0.36, 1.6, 8);
+    g.rotateZ(HALF);
+    g.translate(-0.8, 0, 0);
+    return g;
+  });
+}
+
+const PLANE_BUILDERS = {
+  hawk: () => ({ geo: jetGeometry(PALETTES.player), flames: [[-2.2, 0, 0, 1]] }),
+
+  viper: () => {
+    const c = { body: '#dfe3e8', dark: '#2b2f36', wing: '#c9ced6', glass: '#1d2c3c', red: '#c8352b' };
+    const P = [];
+    P.push(part(cyl(0.36, 0.5, 4.4), c.body, [0, 0, 0], ALONG_X));
+    P.push(part(cone(0.36, 1.9), c.body, [3.15, 0, 0], ALONG_X));
+    P.push(part(cone(0.12, 0.5), c.dark, [4.2, 0, 0], ALONG_X));
+    P.push(part(sphere(0.45), c.glass, [1.7, 0.36, 0], [0, 0, 0], [2.0, 0.8, 0.75]));
+    P.push(part(box(1.6, 0.45, 0.7), c.dark, [0.6, -0.42, 0]));
+    P.push(wing([[0.9, 0], [-1.3, 2.7], [-1.8, 2.7], [-1.7, 0], [-1.8, -2.7], [-1.3, -2.7]], 0.12, c.wing, -0.1));
+    P.push(wing([[2.3, 0], [1.6, 0.9], [1.3, 0.9], [1.4, 0], [1.3, -0.9], [1.6, -0.9]], 0.08, c.red, 0.0));
+    P.push(wing([[-1.7, 0], [-2.5, 1.4], [-2.9, 1.4], [-2.7, 0], [-2.9, -1.4], [-2.5, -1.4]], 0.1, c.wing, 0));
+    P.push(part(slab([[-0.9, 0.3], [-2.2, 2.2], [-2.75, 2.2], [-2.5, 0.3]], 0.12), c.body));
+    P.push(part(slab([[-1.4, 1.2], [-2.35, 2.2], [-2.75, 2.2], [-2.55, 1.2]], 0.14), c.red));
+    P.push(part(box(2.2, 0.1, 0.15), c.red, [0.3, 0.05, 0.4]));
+    P.push(part(box(2.2, 0.1, 0.15), c.red, [0.3, 0.05, -0.4]));
+    P.push(part(cyl(0.4, 0.46, 0.35), c.dark, [-2.35, 0, 0], ALONG_X));
+    return { geo: merge(P), flames: [[-2.5, 0, 0, 1]] };
+  },
+
+  thunder: () => {
+    const c = { body: '#7b8671', dark: '#3b4236', wing: '#6f7a66', glass: '#1f2a2a', nose: '#2a2d28', stripe: '#d9b44a' };
+    const P = [];
+    P.push(part(cyl(0.55, 0.62, 4.8, 10), c.body, [0, 0, 0], ALONG_X));
+    P.push(part(sphere(0.55, 10, 8), c.body, [2.4, 0, 0], [0, 0, 0], [1.3, 1, 1]));
+    P.push(part(cyl(0.12, 0.12, 0.9, 6), c.nose, [3.35, -0.15, 0], ALONG_X));
+    P.push(part(sphere(0.45), c.glass, [1.9, 0.5, 0], [0, 0, 0], [1.3, 0.75, 0.8]));
+    P.push(wing([[0.6, 0], [0.3, 4.4], [-0.8, 4.4], [-0.8, 0], [-0.8, -4.4], [0.3, -4.4]], 0.18, c.wing, -0.35));
+    for (const z of [-2.2, -1.2, 1.2, 2.2]) P.push(part(cyl(0.16, 0.16, 1.1, 6), c.dark, [0.1, -0.7, z], ALONG_X));
+    for (const z of [-0.95, 0.95]) {
+      P.push(part(cyl(0.42, 0.42, 1.8, 10), c.dark, [-1.3, 0.75, z], ALONG_X));
+      P.push(part(box(0.6, 0.35, 0.18), c.dark, [-1.2, 0.45, z * 0.7]));
+    }
+    P.push(wing([[-2.2, 0], [-2.35, 1.8], [-3.1, 1.8], [-3.1, 0], [-3.1, -1.8], [-2.35, -1.8]], 0.12, c.wing, 0.2));
+    for (const z of [-1.75, 1.75]) P.push(part(slab([[-2.5, -0.3], [-2.6, 1.6], [-3.3, 1.6], [-3.2, -0.3]], 0.12), c.body, [0, 0.2, z]));
+    P.push(part(box(1.2, 0.08, 1.14), c.stripe, [0.8, 0.02, 0]));
+    return { geo: merge(P), flames: [[-2.2, 0.75, 0.95, 0.85], [-2.2, 0.75, -0.95, 0.85]] };
+  },
+
+  raptor: () => {
+    const c = { body: '#66717c', dark: '#3a424b', wing: '#5d6873', glass: '#b8922a' };
+    const P = [];
+    P.push(part(cyl(0.45, 0.62, 4.2, 6), c.body, [0, 0, 0], ALONG_X, [1, 1, 1.35]));
+    P.push(part(cone(0.45, 1.8, 6), c.body, [3.0, 0, 0], ALONG_X, [1, 1, 1.35]));
+    P.push(part(sphere(0.46, 8, 6), c.glass, [1.8, 0.42, 0], [0, 0, 0], [1.9, 0.7, 0.8]));
+    P.push(wing([[1.2, 0], [-1.2, 3.1], [-2.0, 3.1], [-1.7, 1.0], [-2.3, 0], [-1.7, -1.0], [-2.0, -3.1], [-1.2, -3.1]], 0.14, c.wing, -0.08));
+    P.push(wing([[-2.0, 0], [-2.8, 1.7], [-3.4, 1.7], [-3.1, 0], [-3.4, -1.7], [-2.8, -1.7]], 0.1, c.wing, 0));
+    for (const z of [-0.75, 0.75]) {
+      P.push(part(slab([[-1.4, 0.2], [-2.4, 1.7], [-3.0, 1.7], [-2.8, 0.2]], 0.1), c.dark, [0, 0.1, z], [z > 0 ? 0.35 : -0.35, 0, 0]));
+      P.push(part(box(0.8, 0.26, 0.4), c.dark, [-2.35, 0, z * 0.6]));
+    }
+    P.push(part(box(1.4, 0.38, 0.4), c.dark, [0.9, -0.2, 0.55]));
+    P.push(part(box(1.4, 0.38, 0.4), c.dark, [0.9, -0.2, -0.55]));
+    return { geo: merge(P), flames: [[-2.7, 0, 0.45, 0.8], [-2.7, 0, -0.45, 0.8]] };
+  },
+
+  specter: () => {
+    const c = { body: '#2d3f63', dark: '#161f33', wing: '#34497a', glass: '#35d6ff', glow: '#35d6ff' };
+    const P = [];
+    P.push(part(cyl(0.4, 0.62, 4.6, 8), c.body, [0, 0, 0], ALONG_X));
+    P.push(part(cone(0.4, 2.0, 8), c.body, [3.3, 0, 0], ALONG_X));
+    P.push(part(sphere(0.45), c.glass, [2.0, 0.4, 0], [0, 0, 0], [2.0, 0.72, 0.75]));
+    // Forward-swept main wing
+    P.push(wing([[-0.3, 0], [1.0, 3.4], [0.35, 3.5], [-2.0, 0.7], [-2.0, -0.7], [0.35, -3.5], [1.0, -3.4]], 0.14, c.wing, -0.1));
+    P.push(wing([[2.5, 0], [1.9, 1.2], [1.5, 1.2], [1.6, 0], [1.5, -1.2], [1.9, -1.2]], 0.08, c.wing, 0.05));
+    P.push(wing([[-2.1, 0], [-2.9, 1.6], [-3.4, 1.6], [-3.1, 0], [-3.4, -1.6], [-2.9, -1.6]], 0.1, c.wing, 0));
+    for (const z of [-0.7, 0.7]) P.push(part(slab([[-1.3, 0.25], [-2.5, 1.9], [-3.1, 1.9], [-2.8, 0.25]], 0.1), c.dark, [0, 0.1, z], [z > 0 ? 0.3 : -0.3, 0, 0]));
+    P.push(part(box(3.4, 0.07, 0.08), c.glow, [0.5, 0.2, 0.52]));
+    P.push(part(box(3.4, 0.07, 0.08), c.glow, [0.5, 0.2, -0.52]));
+    for (const z of [-0.42, 0.42]) P.push(part(cyl(0.34, 0.4, 0.4, 8), c.dark, [-2.45, 0, z], ALONG_X));
+    return { geo: merge(P), flames: [[-2.65, 0, 0.42, 0.85], [-2.65, 0, -0.42, 0.85]] };
+  },
+
+  nova: () => {
+    const c = { body: '#eef2f5', dark: '#2a2f38', wing: '#dde3ea', glass: '#1a2b3a', gold: '#e3b341', glow: '#6dffc0' };
+    const P = [];
+    P.push(part(cyl(0.32, 0.55, 5.0, 10), c.body, [0, 0, 0], ALONG_X));
+    P.push(part(cone(0.32, 2.4, 10), c.body, [3.7, 0, 0], ALONG_X));
+    P.push(part(cone(0.1, 0.6, 6), c.gold, [5.1, 0, 0], ALONG_X));
+    P.push(part(sphere(0.42), c.glass, [2.3, 0.33, 0], [0, 0, 0], [2.3, 0.7, 0.7]));
+    P.push(wing([[1.8, 0], [-0.6, 1.6], [-1.6, 3.6], [-2.4, 3.6], [-2.3, 0], [-2.4, -3.6], [-1.6, -3.6], [-0.6, -1.6]], 0.12, c.wing, -0.12));
+    for (const z of [-1.35, 1.35]) {
+      P.push(part(cyl(0.34, 0.4, 3.0, 10), c.dark, [-1.1, -0.1, z], ALONG_X));
+      P.push(part(cone(0.34, 0.8, 10), c.gold, [0.8, -0.1, z], ALONG_X));
+      P.push(part(slab([[-1.7, 0.2], [-2.3, 1.4], [-2.8, 1.4], [-2.6, 0.2]], 0.08), c.gold, [0, 0, z]));
+      P.push(part(box(2.6, 0.06, 0.06), c.glow, [-1.1, -0.1, z + (z > 0 ? 0.36 : -0.36)]));
+    }
+    P.push(part(box(2.8, 0.06, 0.08), c.glow, [0.8, 0.28, 0]));
+    P.push(part(cyl(0.44, 0.5, 0.35, 10), c.dark, [-2.55, 0, 0], ALONG_X));
+    return { geo: merge(P), flames: [[-2.7, 0, 0, 1], [-2.6, -0.1, 1.35, 0.9], [-2.6, -0.1, -1.35, 0.9]] };
+  },
+};
+
+// Player aircraft facing +X. userData.flames holds the afterburner meshes.
+export function createPlaneModel(id, flameType = 'orange') {
+  const build = PLANE_BUILDERS[id] || PLANE_BUILDERS.hawk;
+  const spec = cached('plane:' + id, build);
+  const root = new THREE.Group();
+  const model = new THREE.Group();
+  root.add(model);
+  const body = mesh(spec.geo);
+  model.add(body);
+  const flames = spec.flames.map(([x, y, z, s]) => {
+    const f = new THREE.Mesh(flameGeometry(), FLAME_MATS[flameType] || MAT.glow);
+    f.position.set(x, y, z);
+    f.scale.setScalar(s);
+    f.userData.baseScale = s;
+    model.add(f);
+    return f;
+  });
+  root.userData.flames = flames;
+  root.userData.flame = flames[0];
+  root.userData.meshes = [body];
+  return root;
 }
 
 export function createFighter(facing = -1) {
@@ -471,4 +601,166 @@ export function cloudGeometry(seedFn, color) {
     P.push(part(new THREE.IcosahedronGeometry(r, 1), color, [(t - 0.5) * len, (seedFn() - 0.3) * 1.5, (seedFn() - 0.5) * 3], [seedFn(), seedFn(), 0], [1.2, 0.75, 1]));
   }
   return merge(P);
+}
+
+// ---------------------------------------------------------------- naval & hazards
+
+// Gunboat facing -X. Waterline at y = 0.
+export function createGunboat() {
+  const root = new THREE.Group();
+  const hull = '#6d7a86';
+  const dark = '#343c44';
+  const geo = cached('gunboat', () => merge([
+    part(box(4.6, 1.0, 1.7), hull, [0.3, 0.2, 0]),
+    part(cone(0.85, 1.6, 4), hull, [-2.8, 0.2, 0], [HALF, 0, HALF], [1, 1, 0.75]),
+    part(box(4.8, 0.2, 1.8), '#8a3a32', [0.2, -0.25, 0]),
+    part(box(1.6, 0.9, 1.2), '#aab4bc', [0.9, 1.1, 0]),
+    part(box(1.0, 0.25, 1.25), dark, [0.9, 1.45, 0]),
+    part(cyl(0.06, 0.06, 1.6, 4), dark, [1.3, 2.1, 0]),
+    part(cyl(0.45, 0.55, 0.4, 8), dark, [-1.2, 0.9, 0]),
+  ]));
+  const body = mesh(geo);
+  root.add(body);
+  const pivot = new THREE.Group();
+  pivot.position.set(-1.2, 1.1, 0);
+  const barrel = mesh(barrelGeometry(false));
+  barrel.scale.set(0.9, 0.8, 0.8);
+  pivot.add(barrel);
+  root.add(pivot);
+  root.userData.pivot = pivot;
+  root.userData.meshes = [body, barrel];
+  return root;
+}
+
+// Anti-aircraft corvette facing -X.
+export function createAAShip() {
+  const root = new THREE.Group();
+  const hull = '#5f6b75';
+  const dark = '#2e353c';
+  const geo = cached('aaship', () => merge([
+    part(box(6.4, 1.1, 2.0), hull, [0.4, 0.25, 0]),
+    part(cone(1.0, 2.0, 4), hull, [-3.9, 0.25, 0], [HALF, 0, HALF], [1, 1, 0.75]),
+    part(box(6.6, 0.22, 2.1), '#7a3029', [0.3, -0.25, 0]),
+    part(box(2.2, 1.3, 1.5), '#9aa5ae', [1.4, 1.4, 0]),
+    part(box(1.4, 0.35, 1.55), dark, [1.4, 1.9, 0]),
+    part(cyl(0.08, 0.1, 2.6, 4), dark, [1.9, 3.0, 0]),
+    part(box(0.12, 0.12, 1.4), dark, [1.9, 3.6, 0]),
+    part(cyl(0.3, 0.4, 0.8, 8), dark, [3.1, 1.2, 0]),
+    part(cyl(0.7, 0.8, 0.5, 8), dark, [-1.4, 1.0, 0]),
+  ]));
+  const body = mesh(geo);
+  root.add(body);
+  const pivot = new THREE.Group();
+  pivot.position.set(-1.4, 1.35, 0);
+  const barrel = mesh(barrelGeometry(true));
+  barrel.scale.set(1.2, 1, 1);
+  pivot.add(barrel);
+  root.add(pivot);
+  root.userData.pivot = pivot;
+  root.userData.meshes = [body, barrel];
+  return root;
+}
+
+export function createMeteor() {
+  const root = new THREE.Group();
+  const geo = cached('meteor', () => merge([
+    part(new THREE.IcosahedronGeometry(1.1, 0), '#3a2a22'),
+    part(new THREE.IcosahedronGeometry(0.5, 0), '#ff7a1a', [0.6, 0.5, 0.4]),
+    part(new THREE.IcosahedronGeometry(0.45, 0), '#ffb040', [-0.5, -0.4, 0.5]),
+  ]));
+  const body = mesh(geo);
+  root.add(body);
+  const glow = new THREE.Mesh(cached('meteorGlow', () => new THREE.IcosahedronGeometry(1.5, 1)), MAT.glow);
+  glow.scale.setScalar(1);
+  root.add(glow);
+  root.userData.meshes = [body];
+  return root;
+}
+
+// ---------------------------------------------------------------- extra scenery parts
+
+export function palmParts(x, y, z, s, theme, v) {
+  const lean = (v - 0.5) * 0.5;
+  const parts = [part(cyl(0.16, 0.24, 3.6, 5), theme.trunk, [x + lean * 1.8 * s, y + 1.8 * s, z], [0, 0, -lean], [s, s, s])];
+  const tx = x + lean * 3.6 * s;
+  const ty = y + 3.6 * s;
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * PI * 2 + v * 3;
+    parts.push(part(box(2.4, 0.08, 0.5), theme.tree, [tx + Math.cos(a) * 1.0 * s, ty - 0.25 * s, z + Math.sin(a) * 1.0 * s], [0, -a, -0.35], [s, s, s]));
+  }
+  return parts;
+}
+
+export function hoodooParts(x, y, z, s, theme) {
+  const cols = theme.strata || [theme.rock];
+  const parts = [];
+  let h = y;
+  for (let i = 0; i < 3; i++) {
+    const r = (1.2 - i * 0.25) * s;
+    const hh = (2.2 + i * 0.4) * s;
+    parts.push(part(cyl(r * 0.85, r, hh, 6), cols[i % cols.length], [x, h + hh / 2, z]));
+    h += hh;
+  }
+  parts.push(part(cyl(1.3 * s, 1.1 * s, 0.6 * s, 6), cols[3 % cols.length], [x, h + 0.3 * s, z]));
+  return parts;
+}
+
+export function deadTreeParts(x, y, z, s, color, v) {
+  return [
+    part(cyl(0.12, 0.22, 3.2, 5), color, [x, y + 1.6 * s, z], [0, 0, (v - 0.5) * 0.3], [s, s, s]),
+    part(cyl(0.06, 0.1, 1.4, 4), color, [x + 0.45 * s, y + 2.4 * s, z], [0, 0, -0.8], [s, s, s]),
+    part(cyl(0.06, 0.1, 1.2, 4), color, [x - 0.4 * s, y + 2.0 * s, z], [0, 0, 0.9], [s, s, s]),
+  ];
+}
+
+export function skyscraperParts(x, y, z, w, h, d, theme, v, lit) {
+  const walls = theme.buildings[Math.floor(v * theme.buildings.length) % theme.buildings.length];
+  const parts = [part(box(w, h, d), walls, [x, y + h / 2 - 0.5, z])];
+  const floors = Math.min(16, Math.floor(h / 2.6));
+  for (let f = 0; f < floors; f++) {
+    const on = !lit || hashLit(x, f) > 0.25;
+    parts.push(part(box(w * 0.86, 0.55, 0.06), on ? theme.windows : theme.windowsOff || '#2a2f3a', [x, y + 1.2 + f * 2.6, z + d / 2 + 0.03]));
+  }
+  if (v > 0.6) parts.push(part(cyl(0.05, 0.08, 4, 4), '#2a2a2a', [x + w * 0.2, y + h + 1.5, z]));
+  else parts.push(part(box(w * 0.5, 1.2, d * 0.5), walls, [x, y + h + 0.1, z]));
+  return parts;
+}
+
+function hashLit(x, f) {
+  const n = Math.sin(x * 12.9898 + f * 78.233) * 43758.5453;
+  return n - Math.floor(n);
+}
+
+export function lighthouseParts(x, y, z, s) {
+  const parts = [];
+  for (let i = 0; i < 4; i++) {
+    parts.push(part(cyl((0.9 - i * 0.1) * s, (1.0 - i * 0.1) * s, 1.6 * s, 8), i % 2 ? '#c8352b' : '#f2f2ee', [x, y + (0.8 + i * 1.6) * s, z]));
+  }
+  parts.push(part(cyl(0.7 * s, 0.7 * s, 0.9 * s, 8), '#ffe38a', [x, y + 6.9 * s, z]));
+  parts.push(part(cone(0.85 * s, 0.9 * s, 8), '#2a2a2a', [x, y + 7.8 * s, z]));
+  return parts;
+}
+
+export function shipDecorParts(x, y, z, s, v) {
+  const hull = v > 0.5 ? '#5f6b75' : '#6d5a4a';
+  return [
+    part(box(9 * s, 1.4 * s, 2.2 * s), hull, [x, y + 0.3 * s, z]),
+    part(box(3 * s, 1.6 * s, 1.8 * s), '#c9ced3', [x + 2 * s, y + 1.8 * s, z]),
+    part(cyl(0.3 * s, 0.35 * s, 1.6 * s, 6), '#2e2e2e', [x + 2.6 * s, y + 3.2 * s, z]),
+  ];
+}
+
+export function streetlightParts(x, y, z, lit) {
+  return [
+    part(cyl(0.07, 0.09, 3.2, 4), '#2a2d33', [x, y + 1.6, z]),
+    part(box(0.8, 0.12, 0.2), '#2a2d33', [x + 0.35, y + 3.2, z]),
+    part(box(0.35, 0.14, 0.3), lit ? '#ffe7a0' : '#c9ccd1', [x + 0.65, y + 3.1, z]),
+  ];
+}
+
+export function volcanoParts(x, y, z, r, h, theme) {
+  return [
+    part(cyl(r * 0.12, r, h, 14, 1), theme.mountain, [x, y + h / 2, z]),
+    part(cyl(r * 0.1, r * 0.12, 1.5, 14, 1), theme.lava, [x, y + h + 0.2, z]),
+  ];
 }

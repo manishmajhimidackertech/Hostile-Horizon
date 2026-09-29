@@ -1,15 +1,17 @@
 // Mission pacing: timed enemy waves, tutorial hints and the end-of-mission boss.
-import { THEMES } from './world.js';
+import { MAPS } from './maps.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const randi = (a, b) => Math.floor(rand(a, b + 1));
 
 export function missionInfo(n) {
-  const theme = (n - 1) % THEMES.length;
+  const theme = (n - 1) % MAPS.length;
   return {
     number: n,
     theme,
-    name: THEMES[theme].name,
+    name: MAPS[theme].name,
+    desc: MAPS[theme].desc,
+    map: MAPS[theme],
     boss: n % 3 === 0 ? 'airship' : 'bomber',
     duration: Math.min(70 + n * 10, 150),
   };
@@ -104,6 +106,7 @@ export class Director {
     this.lastGround = 0;
     this.bossState = 'none';
     this.bossTimer = 0;
+    this.hazardT = 8;
   }
 
   get progress() {
@@ -118,6 +121,7 @@ export class Director {
       if (this.t > 6) g.hint('fire');
       if (this.t > 14) g.hint('missile');
     }
+    if (this.mission.map.hazard === 'lava' && this.bossState !== 'warning') this._lavaBombs(dt);
     if (this.bossState === 'none') {
       this.nextWave -= dt;
       if (this.nextWave <= 0 && this.t < this.mission.duration - 3) {
@@ -149,6 +153,19 @@ export class Director {
         this.nextWave = rand(9, 13);
       }
     }
+  }
+
+  // Volcano maps: lava bombs rain down from the eruptions.
+  _lavaBombs(dt) {
+    const g = this.g;
+    this.hazardT -= dt;
+    if (this.hazardT > 0) return;
+    this.hazardT = rand(4, 8) / Math.min(1.6, 1 + this.mission.number * 0.03);
+    const n = randi(1, this.mission.number >= 6 ? 3 : 2);
+    for (let i = 0; i < n; i++) {
+      g.addEnemy('meteor', g.camX + rand(-0.2, 1.1) * g.halfW, g.halfH + 5 + i * 4, { vx: rand(-9, -2), vy: rand(-6, -2) });
+    }
+    g.hint('lava');
   }
 
   _spawnWave() {

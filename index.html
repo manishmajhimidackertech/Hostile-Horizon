@@ -58,6 +58,7 @@
       </div>
 
       <div id="damage-vignette"></div>
+      <div id="lightning-flash"></div>
       <div id="popups"></div>
       <div id="banner"></div>
       <div id="toast"></div>
@@ -68,7 +69,7 @@
           <div class="logo">
             <div class="logo-top">HOSTILE</div>
             <div class="logo-bottom">HORIZON</div>
-            <div class="logo-sub">Aerial combat · Upgrade · Survive</div>
+            <div class="logo-sub">Survive aerial combat</div>
           </div>
           <div class="menu">
             <button class="btn primary" id="btn-play">PLAY</button>
@@ -99,6 +100,7 @@
                 <div class="mission-info">
                   <div class="mission-num" id="mission-num">MISSION 1</div>
                   <div class="mission-name" id="mission-name">Verdant Valley</div>
+                  <div class="mission-desc" id="mission-desc"></div>
                   <div class="mission-boss" id="mission-boss"></div>
                 </div>
                 <button class="icon-btn" id="mission-next" aria-label="Next mission">›</button>
@@ -106,7 +108,23 @@
               <button class="btn primary launch" id="btn-launch">LAUNCH</button>
               <div class="record" id="hangar-record"></div>
             </div>
-            <div class="upgrades" id="upgrades"></div>
+            <div class="aircraft">
+              <div class="plane-card" id="plane-card">
+                <button class="icon-btn" id="plane-prev" aria-label="Previous aircraft">‹</button>
+                <div class="plane-thumb"><img id="plane-img" alt="" /><span class="plane-tag" id="plane-tag"></span></div>
+                <div class="plane-info">
+                  <div class="plane-count" id="plane-count"></div>
+                  <div class="plane-name" id="plane-name"></div>
+                  <div class="plane-role" id="plane-role"></div>
+                  <div class="plane-stats" id="plane-stats"></div>
+                </div>
+                <div class="plane-actions">
+                  <button class="btn primary" id="plane-action"></button>
+                </div>
+                <button class="icon-btn" id="plane-next" aria-label="Next aircraft">›</button>
+              </div>
+              <div class="upgrades" id="upgrades"></div>
+            </div>
           </div>
         </div>
       </section>
@@ -120,7 +138,7 @@
             <span></span>
           </header>
           <div class="help-body">
-            <p>Fly through each sortie, shoot down enemy aircraft and bomb ground targets. Survive to the end and destroy the heavy target to win. Spend credits in the hangar on upgrades.</p>
+            <p>Fly through each sortie, shoot down enemy aircraft and bomb ground targets. Survive to the end and destroy the heavy target to win. Spend credits in the hangar on new aircraft, and upgrade each one separately.</p>
             <table class="controls">
               <thead><tr><th></th><th>Keyboard</th><th>Mouse</th><th>Touch</th><th>Gamepad</th></tr></thead>
               <tbody>
@@ -137,6 +155,8 @@
               <li><b>Bombs</b> keep your forward speed. Release them just before you pass over tanks and flak guns.</li>
               <li>Chain kills quickly to build a <b>combo</b> score multiplier.</li>
               <li>Pick up <b>crates</b>. Green crates repair your hull and olive crates restock ammo.</li>
+              <li>Each theatre has its own dangers: dust storms, gunboats at sea, lava bombs, lightning and searchlights.</li>
+              <li>Heavier aircraft repair themselves after a few seconds out of fire, and some launch missiles in pairs or threes.</li>
               <li><b>Install</b>: use your browser's “Install app” option, or on iOS use Share → Add to Home Screen. The game works offline once installed.</li>
             </ul>
           </div>

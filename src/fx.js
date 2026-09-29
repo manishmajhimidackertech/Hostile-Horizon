@@ -161,6 +161,11 @@ const COL = {
   dirt: C('#6b5433'),
   spark: C('#ffe9a8'),
   blue: C('#8fd8ff'),
+  green: C('#8dffc8'),
+  teal: C('#1d8a9a'),
+  splash: C('#e8f6ff'),
+  foam: C('#b9dcea'),
+  lava: C('#ff7a1a'),
   flak: C('#3b3632'),
 };
 
@@ -174,6 +179,7 @@ export class Effects {
     this.glow.points.renderOrder = 2;
     scene.add(this.smoke.points, this.glow.points);
     this.quality = 1;
+    this.water = false;
   }
 
   setScale(v) {
@@ -222,6 +228,11 @@ export class Effects {
   }
 
   groundBlast(x, y, s = 1, vx = 0) {
+    if (this.water) {
+      this.explosion(x, y + 0.8, s * 0.8, vx);
+      this.splash(x, y, s, vx);
+      return;
+    }
     this.explosion(x, y + 0.5, s, vx);
     const sm = this.smoke;
     for (let i = this.n(12 * s); i-- > 0;) {
@@ -253,6 +264,12 @@ export class Effects {
   }
 
   dirt(x, y, vx = 0) {
+    if (this.water) {
+      for (let i = this.n(3); i-- > 0;) {
+        this.smoke.spawn(x, y, 0.3, vx + rnd(-2, 2), rnd(4, 9), 0, rnd(0.3, 0.6), 0.4, 0.9, COL.splash, COL.foam, 0.9, 1, -22);
+      }
+      return;
+    }
     for (let i = this.n(3); i-- > 0;) {
       this.smoke.spawn(x, y, 0.3, vx + rnd(-3, 3), rnd(3, 8), 0, rnd(0.3, 0.6), 0.5, 1.1, COL.dirt, COL.dirt, 0.9, 1, -20);
     }
@@ -262,8 +279,36 @@ export class Effects {
     this.glow.spawn(x, y, 0.4, vx, 0, 0, 0.05, 1.3, 0.6, COL.white, COL.yellow, 1);
   }
 
-  exhaust(x, y, vx, vy, s = 1, blue = false) {
-    this.glow.spawn(x, y, 0, vx, vy, 0, rnd(0.08, 0.16), 0.9 * s, 0.25 * s, blue ? COL.blue : COL.yellow, COL.red, 0.8);
+  exhaust(x, y, vx, vy, s = 1, kind = 'orange') {
+    const c0 = kind === 'blue' ? COL.blue : kind === 'green' ? COL.green : COL.yellow;
+    const c1 = kind === 'green' ? COL.teal : COL.red;
+    this.glow.spawn(x, y, 0, vx, vy, 0, rnd(0.08, 0.16), 0.9 * s, 0.25 * s, c0, c1, 0.8);
+  }
+
+  splash(x, y, s = 1, vx = 0) {
+    const sm = this.smoke;
+    for (let i = this.n(16 * s); i-- > 0;) {
+      const a = rnd(0.35, Math.PI - 0.35);
+      const v = rnd(6, 18) * Math.sqrt(s);
+      sm.spawn(x + rnd(-0.6, 0.6) * s, y, 0.5, vx + Math.cos(a) * v * 0.5, Math.sin(a) * v, rnd(-2, 2), rnd(0.6, 1.2), rnd(0.6, 1.1) * s, rnd(1.6, 2.6) * s, COL.splash, COL.foam, 0.95, 0.8, -26);
+    }
+    for (let i = this.n(5 * s); i-- > 0;) {
+      sm.spawn(x + rnd(-2, 2) * s, y + 0.2, 0.2, vx * 0.3, rnd(0.5, 1.5), 0, rnd(1, 1.8), 2 * s, 5 * s, COL.foam, COL.splash, 0.6, 1, 0);
+    }
+  }
+
+  wake(x, y, vx) {
+    this.smoke.spawn(x, y + 0.1, 0.4, vx + rnd(-1, 1), rnd(0.2, 1), rnd(-1, 1), rnd(0.8, 1.4), 0.8, 2.4, COL.splash, COL.foam, 0.7, 1, 0);
+  }
+
+  fireTrail(x, y, vx, vy, s = 1) {
+    this.glow.spawn(x, y, 0.2, vx + rnd(-1, 1), vy + rnd(-1, 1), 0, rnd(0.2, 0.4), 1.6 * s, 0.5 * s, COL.yellow, COL.red, 1, 2, 0);
+    if (Math.random() < 0.6) this.smoke.spawn(x, y, -0.2, vx * 0.8, vy * 0.2 + 1, 0, rnd(0.8, 1.4), 1 * s, 3 * s, COL.smokeDark, COL.smoke, 0.6, 1, 1);
+  }
+
+  plume(x, y, z, s) {
+    this.smoke.spawn(x + rnd(-2, 2) * s, y, z, rnd(-1, 1) * s, rnd(3, 6) * s, 0, rnd(5, 8), 6 * s, 22 * s, COL.smokeDark, COL.smoke, 0.55, 0.05, 0.4);
+    if (Math.random() < 0.3) this.glow.spawn(x, y + 1, z + 1, rnd(-3, 3) * s, rnd(4, 10) * s, 0, rnd(0.8, 1.6), 5 * s, 2 * s, COL.lava, COL.red, 1, 0.2, -6);
   }
 
   trail(x, y, vx, vy, s = 1, dark = false) {

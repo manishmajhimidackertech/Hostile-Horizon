@@ -190,6 +190,12 @@ export class AudioEngine {
       case 'win':
         [60, 64, 67, 72].forEach((n, i) => this._osc('triangle', NOTE(n), NOTE(n), 0.3, 0.14, i * 0.12));
         break;
+      case 'thunder': {
+        const d = 0.15 + Math.random() * 0.5;
+        this._noise(0.25, 0.5, 'highpass', 1800, 900, 1, d);
+        this._noise(2.8, 0.7, 'lowpass', 700, 60, 1, d + 0.05);
+        break;
+      }
       case 'lose':
         [67, 63, 60, 55].forEach((n, i) => this._osc('triangle', NOTE(n), NOTE(n), 0.35, 0.12, i * 0.18));
         break;

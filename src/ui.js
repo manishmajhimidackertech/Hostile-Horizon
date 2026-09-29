@@ -1,5 +1,6 @@
 // DOM overlay: menus, hangar, HUD, banners and floating score popups.
-import { UPGRADES, upgradeCost, writeSave, defaultSave } from './save.js';
+import { UPGRADES, upgradeCost, writeSave, defaultSave, emptyUpgrades } from './save.js';
+import { PLANES, planeRatings } from './planes.js';
 import { missionInfo } from './director.js';
 import { BOSS_NAMES } from './enemies.js';
 
@@ -69,12 +70,19 @@ export class UI {
       });
     }
     this._click('hangar-back', () => {
+      this.game.previewPlane(this.save.plane);
       this.show('title');
       this._refreshTitle();
     });
     this._click('mission-prev', () => this._selectMission(-1));
     this._click('mission-next', () => this._selectMission(1));
     this._click('btn-launch', () => this.launch(this.selectedMission));
+    this._click('plane-prev', () => this._selectPlane(-1));
+    this._click('plane-next', () => this._selectPlane(1));
+    $('plane-action').addEventListener('click', () => {
+      this.audio.unlock();
+      this._planeAction();
+    });
 
     this._click('btn-pause', () => this.game.pause());
     this._click('btn-resume', () => this.game.resume());
@@ -230,6 +238,7 @@ export class UI {
 
   openHangar() {
     this.selectedMission = Math.min(this.selectedMission, this.save.unlocked);
+    this.viewPlane = Math.max(0, PLANES.findIndex((p) => p.id === this.save.plane));
     this.game.showMenuScene(this.selectedMission);
     this.show('hangar');
     this._renderHangar();
@@ -240,6 +249,7 @@ export class UI {
     if (n === this.selectedMission) return;
     this.selectedMission = n;
     this.game.showMenuScene(n);
+    this.game.previewPlane(PLANES[this.viewPlane].id);
     this._renderHangar();
   }
 
@@ -249,17 +259,74 @@ export class UI {
     $('hangar-credits').textContent = save.credits.toLocaleString();
     $('mission-num').textContent = `MISSION ${m.number}`;
     $('mission-name').textContent = m.name;
+    $('mission-desc').textContent = m.desc;
     $('mission-boss').textContent = `Target: ${BOSS_NAMES[m.boss]}`;
     $('mission-prev').disabled = m.number <= 1;
     $('mission-next').disabled = m.number >= save.unlocked;
     $('hangar-record').textContent = save.highScore ? `Best score ${save.highScore.toLocaleString()} · ${save.stats.kills} kills total` : 'Complete a mission to unlock the next one';
+    this._renderPlane();
+  }
+
+  _selectPlane(d) {
+    const n = PLANES.length;
+    this.viewPlane = (this.viewPlane + d + n) % n;
+    this.game.previewPlane(PLANES[this.viewPlane].id);
+    this._renderPlane();
+  }
+
+  _renderPlane() {
+    const save = this.save;
+    const plane = PLANES[this.viewPlane];
+    const owned = !!save.planes[plane.id];
+    const inUse = save.plane === plane.id;
+    const ups = owned ? save.planes[plane.id].upgrades : emptyUpgrades();
+
+    $('plane-img').src = this.game.planeThumb(plane.id);
+    $('plane-count').textContent = `AIRCRAFT ${this.viewPlane + 1} / ${PLANES.length}`;
+    $('plane-name').textContent = plane.name.toUpperCase();
+    $('plane-role').textContent = plane.role;
+    const tag = $('plane-tag');
+    tag.textContent = inUse ? 'IN USE' : owned ? 'OWNED' : 'LOCKED';
+    tag.className = 'plane-tag' + (inUse ? ' using' : owned ? '' : ' locked');
+
+    const ratings = planeRatings(plane, ups);
+    const stats = $('plane-stats');
+    stats.textContent = '';
+    for (const [key, label] of [['hull', 'HULL'], ['fire', 'FIREPOWER'], ['speed', 'SPEED'], ['ordnance', 'ORDNANCE']]) {
+      const l = document.createElement('span');
+      l.textContent = label;
+      const bar = document.createElement('div');
+      bar.className = 'stat-bar';
+      const fill = document.createElement('i');
+      fill.style.width = `${Math.round(ratings[key] * 100)}%`;
+      bar.appendChild(fill);
+      stats.append(l, bar);
+    }
+
+    const action = $('plane-action');
+    action.textContent = '';
+    action.className = 'btn primary';
+    action.disabled = false;
+    if (inUse) {
+      action.textContent = 'IN USE';
+      action.className = 'btn owned';
+      action.disabled = true;
+    } else if (owned) {
+      action.textContent = 'SELECT';
+    } else {
+      const coin = document.createElement('span');
+      coin.className = 'coin';
+      action.append(document.createTextNode('BUY '), coin, document.createTextNode(plane.price.toLocaleString()));
+      action.disabled = save.credits < plane.price;
+    }
 
     const wrap = $('upgrades');
     wrap.textContent = '';
+    wrap.classList.toggle('locked', !owned);
     for (const up of UPGRADES) {
-      const lvl = save.upgrades[up.id];
+      const lvl = ups[up.id];
       const maxed = lvl >= up.max;
-      const cost = maxed ? 0 : upgradeCost(up, lvl);
+      const cost = maxed ? 0 : upgradeCost(up, lvl, plane);
       const card = document.createElement('div');
       card.className = 'upgrade' + (maxed ? ' maxed' : '');
       const h = document.createElement('h3');
@@ -282,25 +349,52 @@ export class UI {
         const coin = document.createElement('span');
         coin.className = 'coin';
         btn.append(coin, document.createTextNode(cost.toLocaleString()));
-        btn.disabled = save.credits < cost;
-        btn.addEventListener('click', () => this._buy(up));
+        btn.disabled = !owned || save.credits < cost;
+        btn.addEventListener('click', () => this._buy(plane, up));
       }
       card.append(h, p, pips, btn);
       wrap.appendChild(card);
     }
+    if (!owned) {
+      const note = document.createElement('div');
+      note.className = 'upgrades-note';
+      note.textContent = 'Buy this aircraft to unlock its upgrades';
+      wrap.prepend(note);
+    }
   }
 
-  _buy(up) {
+  _planeAction() {
     const save = this.save;
-    const lvl = save.upgrades[up.id];
+    const plane = PLANES[this.viewPlane];
+    if (!save.planes[plane.id]) {
+      if (save.credits < plane.price) {
+        this.audio.play('deny');
+        return;
+      }
+      save.credits -= plane.price;
+      save.planes[plane.id] = { upgrades: emptyUpgrades() };
+      this.audio.play('buy');
+      this.toast(`${plane.name} added to your hangar`, 2.5);
+    }
+    save.plane = plane.id;
+    writeSave(save);
+    this.game.previewPlane(plane.id);
+    this._renderHangar();
+  }
+
+  _buy(plane, up) {
+    const save = this.save;
+    const owned = save.planes[plane.id];
+    if (!owned) return;
+    const lvl = owned.upgrades[up.id];
     if (lvl >= up.max) return;
-    const cost = upgradeCost(up, lvl);
+    const cost = upgradeCost(up, lvl, plane);
     if (save.credits < cost) {
       this.audio.play('deny');
       return;
     }
     save.credits -= cost;
-    save.upgrades[up.id] = lvl + 1;
+    owned.upgrades[up.id] = lvl + 1;
     writeSave(save);
     this.audio.play('buy');
     this._renderHangar();
@@ -386,6 +480,12 @@ export class UI {
     el.classList.add('show');
     clearTimeout(this.toastTimer);
     this.toastTimer = setTimeout(() => el.classList.remove('show'), seconds * 1000);
+  }
+
+  lightningFlash() {
+    const el = $('lightning-flash');
+    el.classList.add('on');
+    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('on')));
   }
 
   damageFlash() {

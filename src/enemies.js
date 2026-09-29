@@ -2,7 +2,7 @@
 // which scrolls right at game.scroll units/second.
 import {
   MAT, createFighter, createDart, createHelicopter, createTank, createFlak,
-  createBomber, createAirship, createMissile,
+  createBomber, createAirship, createMissile, createGunboat, createAAShip, createMeteor,
 } from './models.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -122,6 +122,12 @@ export class Enemy {
       this.def.update(this, dt, g);
     }
     this.obj.position.set(this.x, this.y, 0);
+    if (this.def.naval) {
+      // Ride the swell and leave a wake.
+      this.obj.position.y += Math.sin(this.age * 2.1 + this.x) * 0.15;
+      this.obj.rotation.z = Math.sin(this.age * 1.6 + this.x) * 0.04;
+      if (Math.random() < dt * 12) g.fx.wake(this.x + 2.5, this.y, g.scroll * 0.2);
+    }
     // Cull once well off-screen (no reward).
     const rel = this.x - g.camX;
     if (!this.boss && (rel < -g.halfW - 18 || rel > g.halfW + 90 || this.y < -70 || this.y > 70)) this.remove();
@@ -399,7 +405,7 @@ const KINDS = {
     },
     update(e, dt, g) {
       const rel = e.x - g.camX;
-      const target = g.halfW - 20;
+      const target = g.halfW - 22;
       const vxRel = clamp((target - rel) * 0.9, -14, 5);
       e.x += (g.scroll + vxRel) * dt;
       const ny = e.baseY + Math.sin(e.age * 0.35) * 4;
@@ -456,6 +462,45 @@ const KINDS = {
         g.fx.damageSmoke(e.x + c[0], e.y + c[1] + 2, g.scroll, true);
       }
     },
+  },
+};
+
+// Naval variants reuse the land behaviours with ship models.
+KINDS.gunboat = {
+  ...KINDS.tank, hp: 7, score: 220, credits: 16, naval: true,
+  circles: [[0, 0.7, 1.5], [-1.9, 0.5, 1.1], [1.9, 0.6, 1.2]],
+  build: () => createGunboat(),
+};
+KINDS.aaship = {
+  ...KINDS.flak, hp: 9, score: 260, credits: 20, naval: true,
+  circles: [[0, 0.8, 1.7], [-2.6, 0.5, 1.2], [2.6, 0.8, 1.4]],
+  build: () => createAAShip(),
+};
+
+// Lava bomb thrown up by erupting volcanoes. Can be shot down.
+KINDS.meteor = {
+  hp: 3, r: 1.3, score: 60, credits: 0, air: true, ram: 18, noDrop: true, noTarget: true,
+  build: () => createMeteor(),
+  init(e, o) {
+    e.vx = o.vx ?? rand(-8, -2);
+    e.vy = o.vy ?? -4;
+    e.spin = rand(-4, 4);
+  },
+  update(e, dt, g) {
+    e.vy -= 13 * dt;
+    e.x += (g.scroll + e.vx) * dt;
+    e.y += e.vy * dt;
+    e.obj.rotation.x += e.spin * dt;
+    e.obj.rotation.y += dt * 2;
+    e.obj.children[1].scale.setScalar(0.9 + Math.random() * 0.25);
+    g.fx.fireTrail(e.x, e.y + 0.5, g.scroll * 0.8, -e.vy * 0.2, 1);
+    const gy = g.world.groundY(e.x);
+    if (e.y < gy + 0.5) {
+      g.fx.groundBlast(e.x, gy, 1.3, 0);
+      g.audio.play('explode', 1);
+      g.shake(0.3);
+      e.remove();
+    }
   },
 };
 

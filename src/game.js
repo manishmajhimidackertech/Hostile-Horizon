@@ -6,8 +6,9 @@ import { Weapons } from './weapons.js';
 import { Player } from './player.js';
 import { Enemy, BOSS_NAMES } from './enemies.js';
 import { Director, missionInfo, difficulty } from './director.js';
-import { createPickup } from './models.js';
-import { playerStats, writeSave } from './save.js';
+import { createPickup, createPlaneModel } from './models.js';
+import { writeSave } from './save.js';
+import { getPlane, planeStats } from './planes.js';
 
 const FOV = 28;
 const TAN = Math.tan(THREE.MathUtils.degToRad(FOV / 2));
@@ -30,6 +31,15 @@ const HINTS = {
     mouse: 'Right click launches homing missiles',
     keyboard: 'E launches homing missiles',
     gamepad: 'B / RB launches homing missiles',
+  },
+  lava: {
+    keyboard: 'Lava bombs! Shoot them down or dodge',
+  },
+  naval: {
+    touch: 'Enemy ships! Tap BOMB to drop bombs on them',
+    mouse: 'Enemy ships! Scroll wheel or Q drops bombs',
+    keyboard: 'Enemy ships! Q drops bombs',
+    gamepad: 'Enemy ships! X / LB drops bombs',
   },
   ground: {
     touch: 'Ground targets! Tap BOMB to drop bombs',
@@ -58,6 +68,11 @@ export class Game {
 
     this.world = new World(this.scene);
     this.fx = new Effects(this.scene);
+    this.world.fx = this.fx;
+    this.world.onLightning = () => {
+      this.audio.play('thunder');
+      this.ui.lightningFlash();
+    };
     this.weapons = new Weapons(this);
     this.player = new Player(this);
     this.enemies = [];
@@ -134,8 +149,81 @@ export class Game {
     const info = missionInfo(missionNumber);
     this.world.setup(info.theme, 7 + missionNumber * 101);
     this.scroll = 10;
+    this.player.setPlane(this.save.plane);
     this.player.reset(null);
     this.audio.playSong('menu');
+  }
+
+  // Swap the jet flying behind the menus (hangar preview).
+  previewPlane(id) {
+    if (this.state === 'menu') this.player.setPlane(id);
+  }
+
+  // Renders a transparent 3/4-view snapshot of a plane for the hangar (cached as a data URL).
+  planeThumb(id) {
+    this.thumbs ||= new Map();
+    if (this.thumbs.has(id)) return this.thumbs.get(id);
+    const W = 360;
+    const H = 180;
+    if (!this.thumbRT) {
+      this.thumbRT = new THREE.WebGLRenderTarget(W, H, { samples: 4 });
+      this.thumbScene = new THREE.Scene();
+      this.thumbScene.add(new THREE.HemisphereLight(0xeaf2ff, 0x3a4250, 1.8));
+      const sun = new THREE.DirectionalLight(0xffffff, 2.6);
+      sun.position.set(-3, 6, 5);
+      this.thumbScene.add(sun);
+      this.thumbCam = new THREE.PerspectiveCamera(26, W / H, 0.1, 100);
+      this.thumbCam.position.set(0, 1.6, 11.5);
+      this.thumbCam.lookAt(0, 0, 0);
+    }
+    const obj = createPlaneModel(id, getPlane(id).flame);
+    obj.rotation.set(0.5, -0.55, 0.12, 'YXZ');
+    // Fit the plane inside the frame whatever its wingspan.
+    obj.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(obj);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    const k = Math.min(10.2 / size.x, 5.0 / size.y);
+    obj.scale.setScalar(k);
+    obj.position.copy(center).multiplyScalar(-k);
+    this.thumbScene.add(obj);
+    const r = this.renderer;
+    const prevColor = r.getClearColor(new THREE.Color());
+    const prevAlpha = r.getClearAlpha();
+    r.setRenderTarget(this.thumbRT);
+    r.setClearColor(0x000000, 0);
+    r.clear();
+    r.render(this.thumbScene, this.thumbCam);
+    const px = new Uint8Array(W * H * 4);
+    r.readRenderTargetPixels(this.thumbRT, 0, 0, W, H, px);
+    r.setRenderTarget(null);
+    r.setClearColor(prevColor, prevAlpha);
+    this.thumbScene.remove(obj);
+    // Flip vertically and convert linear -> sRGB.
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    const img = ctx.createImageData(W, H);
+    const lut = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) {
+      const v = i / 255;
+      lut[i] = Math.round(255 * (v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055));
+    }
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const s = ((H - 1 - y) * W + x) * 4;
+        const d = (y * W + x) * 4;
+        img.data[d] = lut[px[s]];
+        img.data[d + 1] = lut[px[s + 1]];
+        img.data[d + 2] = lut[px[s + 2]];
+        img.data[d + 3] = px[s + 3];
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    const url = canvas.toDataURL('image/png');
+    this.thumbs.set(id, url);
+    return url;
   }
 
   startMission(n) {
@@ -149,7 +237,10 @@ export class Game {
     this.camX = 0;
     this.boss = null;
     this.resetStats();
-    this.player.reset(playerStats(this.save.upgrades));
+    const plane = getPlane(this.save.plane);
+    this.player.setPlane(plane.id);
+    this.player.reset(planeStats(plane, this.save.planes[plane.id].upgrades));
+    this.weapons.setTracer(plane.tracer);
     this.player.x = -this.halfW * 0.55;
     this.player.y = 2;
     this.state = 'playing';
@@ -219,6 +310,7 @@ export class Game {
   // ------------------------------------------------------------ entities
 
   addEnemy(kind, x, y, opts) {
+    if (this.world.theme.naval) kind = { tank: 'gunboat', flak: 'aaship' }[kind] || kind;
     const e = new Enemy(this, kind, x, y, opts);
     this.enemies.push(e);
     return e;
@@ -353,6 +445,7 @@ export class Game {
   }
 
   hint(key) {
+    if (key === 'ground' && this.world.isWater()) key = 'naval';
     if (this.hintsShown.has(key) || this.state !== 'playing') return;
     const texts = HINTS[key];
     const text = texts[this.input.mode] || (key === 'fire' ? null : texts.keyboard);
@@ -450,7 +543,7 @@ export class Game {
     this.shakeAmt = Math.max(0, this.shakeAmt - dt * 3);
     const s = this.shakeAmt * this.shakeAmt;
     this.camera.position.set(this.camX + rand(-1, 1) * s, rand(-1, 1) * s, this.camDist);
-    this.world.update(this.camX, this.camDist, this.halfWidthAt);
+    this.world.update(dt, this.camX, this.camDist, this.halfWidthAt, this.halfW, this.halfH);
     this.ui.updatePopups(this, dt);
   }
 }

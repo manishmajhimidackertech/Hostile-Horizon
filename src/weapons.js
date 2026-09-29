@@ -61,6 +61,10 @@ export class Weapons {
     this.bombs = [];
   }
 
+  setTracer(color) {
+    this.player.mesh.material.color.set(color);
+  }
+
   clear() {
     this.player.clear();
     this.enemy.clear();
@@ -120,7 +124,7 @@ export class Weapons {
     let best = null;
     let bestScore = Infinity;
     for (const e of g.enemies) {
-      if (e.dead || e.dying > 0 || !e.onScreen(-2)) continue;
+      if (e.dead || e.dying > 0 || e.def.noTarget || !e.onScreen(-2)) continue;
       const dx = e.x - m.x;
       const dy = e.y - m.y;
       if (dx < -4) continue;
