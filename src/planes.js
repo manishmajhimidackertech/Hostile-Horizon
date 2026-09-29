@@ -10,33 +10,33 @@ export const PLANES = [
     tracer: '#ffc93d', flame: 'orange',
   },
   {
-    id: 'viper', name: 'V-7 Viper', role: 'Nimble interceptor with twin cannons', price: 2500, upgradeMult: 1.5,
-    hp: 120, dmg: 1.25, streams: 2, interval: 0.11, speed: 30, regen: 0,
+    id: 'viper', name: 'V-7 Viper', role: 'Nimble twin-cannon interceptor with slow self-repair', price: 2500, upgradeMult: 1.5,
+    hp: 120, dmg: 1.25, streams: 2, interval: 0.11, speed: 30, regen: 1.5,
     missiles: 6, salvo: 1, missileDamage: 8, bombs: 5, bombSalvo: 1, bombRadius: 4.5, bombDamage: 14,
     tracer: '#ffe46b', flame: 'orange',
   },
   {
-    id: 'thunder', name: 'A-12 Thunderbolt', role: 'Armoured tank-buster. Drops bombs in threes', price: 6000, upgradeMult: 2,
-    hp: 220, dmg: 1.7, streams: 2, interval: 0.1, speed: 22, regen: 1.5,
-    missiles: 6, salvo: 1, missileDamage: 9, bombs: 14, bombSalvo: 3, bombRadius: 6.5, bombDamage: 24,
+    id: 'thunder', name: 'A-12 Thunderbolt', role: 'Armoured tank-buster. Drops bombs in pairs', price: 6000, upgradeMult: 2,
+    hp: 220, dmg: 1.7, streams: 2, interval: 0.1, speed: 22, regen: 0,
+    missiles: 6, salvo: 1, missileDamage: 9, bombs: 14, bombSalvo: 2, bombRadius: 6.5, bombDamage: 24,
     tracer: '#ff9a3d', flame: 'orange',
   },
   {
     id: 'raptor', name: 'F-40 Raptor', role: 'Stealth air-superiority fighter. Fires missiles in pairs', price: 12000, upgradeMult: 3,
-    hp: 200, dmg: 2.2, streams: 3, interval: 0.09, speed: 31, regen: 2.5,
+    hp: 200, dmg: 2.2, streams: 3, interval: 0.09, speed: 31, regen: 0,
     missiles: 10, salvo: 2, missileDamage: 10, bombs: 8, bombSalvo: 1, bombRadius: 5.5, bombDamage: 18,
     tracer: '#9fe8ff', flame: 'orange',
   },
   {
-    id: 'specter', name: 'Su-X Specter', role: 'Forward-swept super-fighter with self-repair', price: 25000, upgradeMult: 4.5,
+    id: 'specter', name: 'Su-X Specter', role: 'Self-repairing super-fighter. Missiles and bombs in pairs', price: 25000, upgradeMult: 4.5,
     hp: 260, dmg: 3, streams: 3, interval: 0.075, speed: 34, regen: 4,
-    missiles: 12, salvo: 1, missileDamage: 12, bombs: 10, bombSalvo: 1, bombRadius: 6, bombDamage: 22,
+    missiles: 12, salvo: 2, missileDamage: 12, bombs: 10, bombSalvo: 2, bombRadius: 6, bombDamage: 22,
     tracer: '#c9a0ff', flame: 'blue',
   },
   {
-    id: 'nova', name: 'X-1 Nova', role: 'Plasma fighter. Fires missiles in threes, bombs in pairs', price: 50000, upgradeMult: 6,
+    id: 'nova', name: 'X-1 Nova', role: 'Missiles and bombs in threes, but no self-repair', price: 50000, upgradeMult: 6,
     hp: 320, dmg: 4, streams: 4, interval: 0.065, speed: 36, regen: 0,
-    missiles: 16, salvo: 3, missileDamage: 14, bombs: 12, bombSalvo: 2, bombRadius: 7, bombDamage: 26,
+    missiles: 16, salvo: 3, missileDamage: 14, bombs: 12, bombSalvo: 3, bombRadius: 7, bombDamage: 26,
     tracer: '#7dffb0', flame: 'green',
   },
 ];
@@ -90,7 +90,7 @@ export function planeStats(plane, up) {
 }
 
 // 0..1 ratings used for the hangar stat bars (square-root scaled so small planes still show).
-const MAX = { hull: 800, fire: 1500, speed: 51, ordnance: 85 };
+const MAX = { hull: 800, fire: 1500, speed: 51, ordnance: 105 };
 export function planeRatings(plane, up) {
   const s = planeStats(plane, up);
   const r = (v, m) => Math.min(1, Math.sqrt(v / m));
