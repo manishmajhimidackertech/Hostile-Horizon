@@ -288,8 +288,9 @@ export class UI {
     $('set-god-row').hidden = !on;
   }
 
+  // Score doesn't count in god mode, so the landing page leaves it out.
   _refreshTitle() {
-    const best = this.save.highScore;
+    const best = this.save.profile === 'god' ? 0 : this.save.highScore;
     $('title-best').textContent = best ? `Best score ${best.toLocaleString()}` : '';
   }
 
