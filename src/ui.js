@@ -44,6 +44,7 @@ export class UI {
     this.current = name;
     const playing = !name || name === 'pause';
     $('hud').hidden = !playing && name !== 'result';
+    this._updateGodBadge();
     this._updateTouchVisibility();
     this._updateRotateHint();
   }
@@ -278,9 +279,12 @@ export class UI {
     }
   }
 
+  // The badge only shows in flight (it would cover panel controls in menus);
+  // the title screen gets a text note instead.
   _updateGodBadge() {
     const on = this.save.profile === 'god';
-    $('god-badge').hidden = !on;
+    $('god-badge').hidden = !on || $('hud').hidden;
+    $('title-god').hidden = !on;
     $('set-god-row').hidden = !on;
   }
 

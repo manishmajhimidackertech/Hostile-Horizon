@@ -80,6 +80,7 @@
           </div>
           <div class="title-foot">
             <span id="title-best"></span>
+            <span id="title-god" hidden>God mode active · type godmode or tap the logo 7 times to exit</span>
             <span id="update-note" hidden>Update ready · <button class="link" id="btn-update">Reload</button></span>
           </div>
         </div>
@@ -98,16 +99,20 @@
               <div class="eyebrow">NEXT SORTIE</div>
               <div class="mission-select">
                 <button class="icon-btn" id="mission-prev" aria-label="Previous mission">‹</button>
-                <div class="mission-info">
+                <div class="mission-title">
                   <div class="mission-num" id="mission-num">MISSION 1</div>
                   <div class="mission-name" id="mission-name">Verdant Valley</div>
-                  <div class="mission-desc" id="mission-desc"></div>
-                  <div class="mission-boss" id="mission-boss"></div>
                 </div>
                 <button class="icon-btn" id="mission-next" aria-label="Next mission">›</button>
               </div>
-              <button class="btn primary launch" id="btn-launch">LAUNCH</button>
-              <div class="record" id="hangar-record"></div>
+              <div class="mission-info">
+                <div class="mission-desc" id="mission-desc"></div>
+                <div class="mission-boss" id="mission-boss"></div>
+              </div>
+              <div class="sortie-foot">
+                <div class="record" id="hangar-record"></div>
+                <button class="btn primary launch" id="btn-launch">LAUNCH</button>
+              </div>
             </div>
             <div class="aircraft">
               <div class="plane-card" id="plane-card">
