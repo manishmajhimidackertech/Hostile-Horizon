@@ -9,6 +9,17 @@ const _s = new THREE.Vector3();
 const _z = new THREE.Vector3(0, 0, 1);
 const TRACER_HALF = 0.95; // half the length of a player tracer (1.9 units)
 
+// Hit test along the path a round moved this frame, so very fast shells cannot skip
+// through the player between frames.
+function sweptHit(p, x0, y0, x1, y1, r) {
+  const steps = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 0.5));
+  for (let k = 1; k <= steps; k++) {
+    const t = k / steps;
+    if (p.hitTest(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, r)) return true;
+  }
+  return false;
+}
+
 class BulletPool {
   constructor(scene, max, geo, color, scale) {
     this.items = [];
@@ -58,6 +69,10 @@ export class Weapons {
     this.player = new BulletPool(scene, 260, tracer, 0xffc93d, [1.9, 0.24, 0.24]);
     const orb = new THREE.IcosahedronGeometry(0.5, 1);
     this.enemy = new BulletPool(scene, 320, orb, 0xff4a2a, [0.9, 0.65, 0.65]);
+    // Bosses fire tracer lines like the player's, in red. Shots a boss charges up first
+    // stay round (and very fast) so the charge reads as something different.
+    this.enemyTracer = new BulletPool(scene, 320, tracer, 0xff3b2a, [1.9, 0.24, 0.24]);
+    this.bossFire = false; // set while a boss runs its update
     this.missiles = [];
     this.bombs = [];
     this.enemyBombs = [];
@@ -70,7 +85,7 @@ export class Weapons {
 
   clear() {
     this.player.clear();
-    this.enemy.clear();
+    this.clearEnemyRounds();
     for (const m of this.missiles) this.game.scene.remove(m.obj);
     for (const b of this.bombs) this.game.scene.remove(b.obj);
     for (const b of this.enemyBombs) this.game.scene.remove(b.obj);
@@ -87,9 +102,16 @@ export class Weapons {
     this.player.add({ x, y, vx: g.scroll + Math.cos(angle) * speed, vy: Math.sin(angle) * speed, damage, life: 6 });
   }
 
+  clearEnemyRounds() {
+    this.enemy.clear();
+    this.enemyTracer.clear();
+  }
+
+  // `opts.orb` forces a round shell (charged boss shots); otherwise bosses fire tracers.
   enemyBullet(x, y, angle, speed, damage, opts = {}) {
     const g = this.game;
-    this.enemy.add({
+    const pool = this.bossFire && !opts.orb ? this.enemyTracer : this.enemy;
+    pool.add({
       x, y,
       vx: g.scroll + Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
@@ -247,12 +269,15 @@ export class Weapons {
       }
     }
 
-    // Enemy rounds
+    // Enemy rounds (orbs and boss tracers)
     const p = g.player;
-    list = this.enemy.items;
+    for (const pool of [this.enemy, this.enemyTracer]) {
+    list = pool.items;
     for (let i = list.length - 1; i >= 0; i--) {
       const b = list[i];
       if (b.grav) b.vy += b.grav * dt;
+      const x0 = b.x;
+      const y0 = b.y;
       b.x += b.vx * dt;
       b.y += b.vy * dt;
       b.life -= dt;
@@ -267,7 +292,7 @@ export class Weapons {
       } else if (b.y < world.groundY(b.x)) {
         g.fx.dirt(b.x, world.groundY(b.x), 0);
         hit = true;
-      } else if (p.alive && p.hitTest(b.x, b.y, b.big ? 0.45 : 0.3)) {
+      } else if (p.alive && sweptHit(p, x0, y0, b.x, b.y, b.big ? 0.45 : 0.3)) {
         if (b.flak) g.fx.flakBurst(b.x, b.y);
         p.hurt(b.damage);
         g.fx.sparks(b.x, b.y, 5, g.scroll);
@@ -277,6 +302,7 @@ export class Weapons {
         list[i] = list[list.length - 1];
         list.pop();
       }
+    }
     }
 
     // Missiles
@@ -359,6 +385,7 @@ export class Weapons {
 
     this.player.sync(g);
     this.enemy.sync(g);
+    this.enemyTracer.sync(g);
   }
 
   _updateEnemyBombs(dt, left, right) {

@@ -345,7 +345,7 @@ export class Game {
 
   onBossDown(boss) {
     this.state = 'victory';
-    this.weapons.enemy.clear();
+    this.weapons.clearEnemyRounds();
     this.ui.banner('TARGET DESTROYED', 2.5, 'good');
     for (const e of this.enemies) {
       if (e !== boss && !e.dead) {
