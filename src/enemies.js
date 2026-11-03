@@ -931,6 +931,11 @@ function followGround(e, dt, g, half) {
 
 // ------------------------------------------------------------------ fortress bosses
 
+// Speeds of the charged round shots (Behemoth main gun, Dreadnought broadside): fast,
+// but slow enough to see and dodge. They grow only a little with mission difficulty.
+const CHARGED_SHOT_SPEED = 44;
+const BROADSIDE_SPEED = 40;
+
 // Ground and naval fortresses hold station on the right, driving forward (facing +X)
 // and never reversing over the ground. Returns the camera-relative x.
 function fortressDrive(e, dt, g, hold) {
@@ -1007,8 +1012,9 @@ KINDS.behemoth = {
     const rz = e.obj.rotation.z;
     // Main gun: slow to traverse, charges visibly, then fires one heavy shell.
     const main = u.guns[0];
-    // The charged shell is a very fast round shot: the charge-up glow is the warning.
-    const shellSpeed = 70 * g.diff.speed;
+    // The charged shell is a fast round shot: the charge-up glow is the warning, and it
+    // is still slow enough to see coming and dodge (about a second at typical range).
+    const shellSpeed = CHARGED_SHOT_SPEED * Math.min(1.15, g.diff.speed);
     let w = gunWorld(e, main);
     const [a, reachable] = elevationBand(leadAngle(g, w.wx, w.wy, shellSpeed, 0.6), 0.1, 1.15);
     aim(main.pivot, a - rz, true, dt, 1.2);
@@ -1122,10 +1128,10 @@ KINDS.dreadnought = {
     const p = g.player;
     const u = e.obj.userData;
     const sp = 22 * g.diff.speed;
-    // Single shots are tracers; a charged broadside fires very fast round shells.
+    // Single shots are tracers; a charged broadside fires fast round shells.
     const fireMain = (gun, n, charged) => {
       const w = gunWorld(e, gun);
-      const speed = charged ? 65 * g.diff.speed : sp;
+      const speed = charged ? BROADSIDE_SPEED * Math.min(1.15, g.diff.speed) : sp;
       for (let k = 0; k < n; k++) g.weapons.enemyBullet(w.mx, w.my, w.ang + (k - (n - 1) / 2) * 0.07, speed, 12, { big: true, orb: charged });
       g.fx.explosion(w.mx, w.my, 0.45, g.scroll);
       g.shake(0.2);
@@ -1137,7 +1143,7 @@ KINDS.dreadnought = {
       if (gun.type === 'main') {
         mainsAlive++;
         // Slow traverse: fast flying outruns it.
-        const aimSpeed = e.broad > 0 ? 65 * g.diff.speed : sp;
+        const aimSpeed = e.broad > 0 ? BROADSIDE_SPEED * Math.min(1.15, g.diff.speed) : sp;
         aim(gun.pivot, clamp(leadAngle(g, w.wx, w.wy, aimSpeed, 0.5), 0.08, Math.PI - 0.08), true, dt, 0.8);
         setCharge(gun, e.broad > 0 ? 1 - e.broad / 1.1 : 0);
         e.gunT[i] -= dt;
