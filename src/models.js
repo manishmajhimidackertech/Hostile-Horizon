@@ -524,14 +524,22 @@ export function createMissile(enemy = false) {
   return g;
 }
 
-// Player bombs are olive with a yellow band; enemy bombs are gunmetal with a red band
-// (each boss scales them to its own size).
-export function createBomb(enemy = false) {
-  const geo = cached('bomb:' + enemy, () => merge([
-    part(sphere(0.35, 8, 6), enemy ? '#33363a' : '#3e4a2c', [0, 0, 0], [0, 0, 0], [2, 1, 1]),
-    part(box(0.35, 0.6, 0.06), enemy ? '#1b1c1e' : '#2a3120', [-0.75, 0, 0]),
-    part(box(0.35, 0.06, 0.6), enemy ? '#1b1c1e' : '#2a3120', [-0.75, 0, 0]),
-    part(box(0.12, 0.72, 0.72), enemy ? '#c0392b' : '#d0b050', [0.1, 0, 0]),
+// Bomb paint schemes: the player's are olive with a yellow band, enemy bombs gunmetal
+// with a red band, and the Behemoth's mortar bombs the player's design painted red.
+// Each boss scales them to its own size.
+const BOMB_PAINT = {
+  player: ['#3e4a2c', '#2a3120', '#d0b050'],
+  enemy: ['#33363a', '#1b1c1e', '#c0392b'],
+  mortar: ['#b3261c', '#5a1510', '#d0b050'],
+};
+
+export function createBomb(style = 'player') {
+  const [body, fins, band] = BOMB_PAINT[style];
+  const geo = cached('bomb:' + style, () => merge([
+    part(sphere(0.35, 8, 6), body, [0, 0, 0], [0, 0, 0], [2, 1, 1]),
+    part(box(0.35, 0.6, 0.06), fins, [-0.75, 0, 0]),
+    part(box(0.35, 0.06, 0.6), fins, [-0.75, 0, 0]),
+    part(box(0.12, 0.72, 0.72), band, [0.1, 0, 0]),
   ]));
   const g = new THREE.Group();
   g.add(mesh(geo));

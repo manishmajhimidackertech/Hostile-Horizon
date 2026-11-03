@@ -536,10 +536,15 @@ export class Game {
     const p = this.player;
     if (p.alive && this.state === 'playing') {
       for (const e of this.enemies) {
-        if (e.dead || e.dying > 0 || !e.ram) continue;
+        if (e.dead || e.dying > 0) continue;
+        if (e.boss) {
+          this._bossContact(e, p);
+          continue;
+        }
+        if (!e.ram) continue;
         if (e.hitTest(p.x + 1, p.y, 0.9) || e.hitTest(p.x - 1, p.y, 0.9)) {
           p.hurt(e.ram);
-          if (!e.boss) e.damage(999);
+          e.damage(999);
         }
       }
     }
@@ -563,6 +568,51 @@ export class Game {
 
     this._updateCamera(dt);
     this.ui.updateHud(this);
+  }
+
+  // A boss is solid: the player can never fly into it. Any overlap pushes the jet back
+  // out of the boss's hit circles (and bounces it away), and a collision hurts both: the
+  // player takes ramming damage (more from the Crimson Ace's attack run) and the boss
+  // takes a knock too, at most once per 0.7 s.
+  _bossContact(e, p) {
+    let touched = false;
+    let nx = 0;
+    let ny = 0;
+    // A few passes: the hit circles overlap, so pushing out of one can land in another.
+    for (let pass = 0; pass < 4; pass++) for (const ox of [1, -1]) {
+      for (const c of e.circles) {
+        const cx = e.x + c[0];
+        const cy = e.y + c[1];
+        const reach = c[2] + 0.9;
+        let dx = p.x + ox - cx;
+        let dy = p.y - cy;
+        let d = Math.hypot(dx, dy);
+        if (d >= reach) continue;
+        if (d < 1e-4) {
+          dx = 0;
+          dy = 1;
+          d = 1;
+        }
+        const push = reach - Math.hypot(p.x + ox - cx, p.y - cy);
+        p.x += (dx / d) * push;
+        p.y += (dy / d) * push;
+        nx += dx / d;
+        ny += dy / d;
+        touched = true;
+      }
+    }
+    if (!touched) return;
+    const len = Math.hypot(nx, ny) || 1;
+    p.vxRel = (nx / len) * 14;
+    p.vyRel = (ny / len) * 14;
+    if (this.time >= (e.bumpT || 0)) {
+      e.bumpT = this.time + 0.7;
+      p.hurt(e.ram || 18);
+      e.damage(8, 'other', -1, p.x, p.y);
+      this.fx.sparks(p.x, p.y, 10, this.scroll);
+      this.audio.play('explode', 0.6);
+      this.shake(0.5);
+    }
   }
 
   _updateCamera(dt) {
