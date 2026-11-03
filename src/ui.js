@@ -325,12 +325,18 @@ export class UI {
     $('hangar-credits').textContent = save.profile === 'god' ? 'Infinite' : save.credits.toLocaleString();
     $('mission-num').textContent = `MISSION ${m.number}`;
     $('mission-name').textContent = m.name;
-    $('mission-desc').textContent = m.desc;
-    const boss = $('mission-boss');
-    boss.textContent = 'Target: ';
-    const name = document.createElement('b');
-    name.textContent = BOSS_NAMES[m.boss];
-    boss.append(name, document.createElement('br'), BOSS_INFO[m.boss].tagline);
+    const info = BOSS_INFO[m.boss];
+    $('mission-boss').replaceChildren(...[
+      ['Target', BOSS_NAMES[m.boss]],
+      ['Features', info.features],
+      ['Weakness', info.weakness],
+    ].map(([label, value]) => {
+      const line = document.createElement('div');
+      const b = document.createElement('b');
+      b.textContent = value;
+      line.append(`${label}: `, b);
+      return line;
+    }));
     $('mission-prev').disabled = m.number <= 1;
     $('mission-next').disabled = m.number >= save.unlocked;
     $('hangar-record').textContent = save.highScore ? `Best score ${save.highScore.toLocaleString()} · ${save.stats.kills} kills total` : 'Complete a mission to unlock the next one';

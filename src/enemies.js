@@ -33,6 +33,21 @@ function lobAngle(fx, fy, tx, ty, t, grav) {
   return [Math.atan2(vy, vx), Math.hypot(vx, vy)];
 }
 
+// Where a gravity bomb released now crosses height `ty`, using exactly the same physics
+// as Weapons (gravity 30, light drag). Returns the time and the world x, or null.
+function bombImpact(x, y, vx, vy, ty) {
+  const step = 1 / 30;
+  for (let t = 0; t < 4; t += step) {
+    vy -= 30 * step;
+    vx *= 1 - 0.08 * step;
+    vy *= 1 - 0.08 * step;
+    x += vx * step;
+    y += vy * step;
+    if (y <= ty) return { t: t + step, x };
+  }
+  return null;
+}
+
 // Switch to the enraged second phase once, announcing it.
 function enraged(e, g, at = 0.5) {
   if (!e.phase2 && e.hp < e.maxHp * at) {
@@ -240,7 +255,9 @@ export class Enemy {
         return;
       }
     } else {
+      g.weapons.bossFire = this.boss;
       this.def.update(this, dt, g);
+      g.weapons.bossFire = false;
     }
     this.obj.position.set(this.x, this.y, 0);
     if (this.def.naval && this.dying <= 0) {
@@ -529,7 +546,8 @@ const KINDS = {
   // while its bay is open the belly is a weak spot.
   bomber: {
     hp: 100, r: 3, score: 2500, credits: 250, air: true, boss: true, facing: 1, name: 'B-9 Stratofortress',
-    tagline: 'Bombs from overhead. Weak: open bomb bay',
+    features: 'Bombs from overhead',
+    weakness: 'Open bomb bay',
     enrage: 'STRATOFORTRESS: ENGINES ON FIRE',
     armor: { missile: 0.8 },
     // Belly (weak spot while the bay is open) first, then the airframe.
@@ -578,11 +596,9 @@ const KINDS = {
       e.y += e.vy * dt;
       e.obj.rotation.z = Math.atan2(e.vy, Math.max(4, e.worldVx)) * 0.8;
       if (e.run === 'approach') {
-        // Release when a bomb dropped now would land on the player: it falls for tf
-        // seconds while drifting with the bomber's speed relative to the player.
-        const tf = Math.sqrt((2 * Math.max(0, e.y - p.y)) / 30);
-        const impact = e.x + (e.vxRel - p.vxRel) * tf;
-        if (Math.abs(impact - p.x) < 4 && e.y > p.y + 3) {
+        // Release when a bomb dropped now would land on the player.
+        const hit = e.y > p.y + 3 ? bombImpact(e.x + 0.8, e.y - 1.6, e.worldVx, e.vy - 1, p.y) : null;
+        if (hit && Math.abs(hit.x - (p.x + (g.scroll + p.vxRel) * hit.t)) < 4) {
           e.run = 'drop';
           e.bombsLeft = phase2 ? 5 : 3;
           e.bombT = 0.45; // doors open first
@@ -649,7 +665,8 @@ const KINDS = {
   // hangar under the gondola, and the open hangar is a big weak spot.
   airship: {
     hp: 260, r: 5, score: 6000, credits: 600, air: true, boss: true, facing: 1, name: 'Leviathan Airship',
-    tagline: 'Launches fighters. Weak: gondola, open hangar',
+    features: 'Launches fighters',
+    weakness: 'Gondola, open hangar',
     enrage: 'LEVIATHAN IS LOSING GAS',
     armor: { gun: 0.75, missile: 1.2 },
     circles: [[1, -5.4, 2.4, 1.6], [11, 0, 3.4], [6, 0, 4.3], [0, 0, 4.6], [-6, 0, 4.3], [-11, 0, 3.4]],
@@ -925,7 +942,8 @@ function elevationBand(a, lo, hi) {
 // two flak guns on the bow cover that blind spot and can be knocked out.
 KINDS.behemoth = {
   hp: 170, r: 4, score: 4000, credits: 400, air: false, boss: true, facing: 1, name: 'Behemoth Land Fortress',
-  tagline: 'Shrugs off cannons. Weak: bombs, engine deck',
+  features: 'Shrugs off cannons',
+  weakness: 'Bombs, engine deck',
   enrage: 'BEHEMOTH: MORTARS ONLINE',
   armor: { gun: 0.55, missile: 0.8, bomb: 1.6 },
   // Flak guns (destructible), the engine deck (weak spot), then hull and turret.
@@ -953,7 +971,8 @@ KINDS.behemoth = {
     const rz = e.obj.rotation.z;
     // Main gun: slow to traverse, charges visibly, then fires one heavy shell.
     const main = u.guns[0];
-    const shellSpeed = 24 * g.diff.speed;
+    // The charged shell is a very fast round shot: the charge-up glow is the warning.
+    const shellSpeed = 70 * g.diff.speed;
     let w = gunWorld(e, main);
     const [a, reachable] = elevationBand(leadAngle(g, w.wx, w.wy, shellSpeed, 0.6), 0.1, 1.15);
     aim(main.pivot, a - rz, true, dt, 1.2);
@@ -963,7 +982,7 @@ KINDS.behemoth = {
       setCharge(main, e.charge);
       if (e.charge >= 1) {
         w = gunWorld(e, main);
-        g.weapons.enemyBullet(w.mx, w.my, w.ang, shellSpeed, 16, { big: true });
+        g.weapons.enemyBullet(w.mx, w.my, w.ang, shellSpeed, 16, { big: true, orb: true });
         g.fx.explosion(w.mx, w.my, 0.5, g.scroll);
         g.audio.play('explode', 0.8);
         g.shake(0.35);
@@ -1032,7 +1051,8 @@ KINDS.behemoth = {
 KINDS.dreadnought = {
   hp: 250, r: 5, score: 4500, credits: 450, air: false, boss: true, naval: true, facing: 1, wakeX: -11,
   name: 'Dreadnought Battleship',
-  tagline: 'Turrets can be destroyed. Weak: bombs',
+  features: 'Broadsides, flak guns',
+  weakness: 'Bombs, destructible turrets',
   enrage: 'DREADNOUGHT: CRUISE MISSILES ARMED',
   armor: { gun: 0.6, missile: 0.9, bomb: 1.4 },
   // Turrets A, B, C and the two AA mounts (destructible), then hull and superstructure.
@@ -1062,9 +1082,11 @@ KINDS.dreadnought = {
     const p = g.player;
     const u = e.obj.userData;
     const sp = 22 * g.diff.speed;
-    const fireMain = (gun, n) => {
+    // Single shots are tracers; a charged broadside fires very fast round shells.
+    const fireMain = (gun, n, charged) => {
       const w = gunWorld(e, gun);
-      for (let k = 0; k < n; k++) g.weapons.enemyBullet(w.mx, w.my, w.ang + (k - (n - 1) / 2) * 0.07, sp, 12, { big: true });
+      const speed = charged ? 65 * g.diff.speed : sp;
+      for (let k = 0; k < n; k++) g.weapons.enemyBullet(w.mx, w.my, w.ang + (k - (n - 1) / 2) * 0.07, speed, 12, { big: true, orb: charged });
       g.fx.explosion(w.mx, w.my, 0.45, g.scroll);
       g.shake(0.2);
     };
@@ -1075,11 +1097,12 @@ KINDS.dreadnought = {
       if (gun.type === 'main') {
         mainsAlive++;
         // Slow traverse: fast flying outruns it.
-        aim(gun.pivot, clamp(leadAngle(g, w.wx, w.wy, sp, 0.5), 0.08, Math.PI - 0.08), true, dt, 0.8);
+        const aimSpeed = e.broad > 0 ? 65 * g.diff.speed : sp;
+        aim(gun.pivot, clamp(leadAngle(g, w.wx, w.wy, aimSpeed, 0.5), 0.08, Math.PI - 0.08), true, dt, 0.8);
         setCharge(gun, e.broad > 0 ? 1 - e.broad / 1.1 : 0);
         e.gunT[i] -= dt;
         if (e.gunT[i] <= 0 && inRange && p.alive && e.broad <= 0) {
-          fireMain(gun, 1);
+          fireMain(gun, 1, false);
           e.gunT[i] = rand(4.5, 6) / rate;
         }
       } else {
@@ -1096,7 +1119,7 @@ KINDS.dreadnought = {
     if (e.broad > 0) {
       e.broad -= dt;
       if (e.broad <= 0) {
-        for (const gun of u.guns) if (gun.type === 'main' && !gun.dead) fireMain(gun, 3);
+        for (const gun of u.guns) if (gun.type === 'main' && !gun.dead) fireMain(gun, 3, true);
         g.shake(0.6);
         e.broadT = rand(8, 10) / rate;
       }
@@ -1146,7 +1169,8 @@ KINDS.dreadnought = {
 // The engines on the rear pylon are its weak spot.
 KINDS.titan = {
   hp: 150, r: 3, score: 3500, credits: 350, air: true, boss: true, facing: 1, name: 'Titan Heavy Gunship',
-  tagline: 'Armoured, minigun overheats. Weak: engines',
+  features: 'Armour, minigun, rocket pods',
+  weakness: 'Engines, minigun overheats',
   enrage: 'TITAN: DOOR GUNNER OPENS FIRE',
   armor: { gun: 0.7, missile: 1.2 },
   // Engines (weak spot) first, then nose to tail.
@@ -1329,7 +1353,8 @@ function aceGunSolution(e, g, tx, ty, tvx, tvy) {
 // locks. After every attack it is slow and exposed while it recovers.
 KINDS.ace = {
   hp: 80, r: 2, score: 3500, credits: 350, air: true, boss: true, headingModel: true, name: 'Crimson Ace',
-  tagline: 'Fast, accurate, uses flares. Weak: thin armour',
+  features: 'Fast, accurate, uses flares',
+  weakness: 'Thin armour',
   enrage: 'CRIMSON ACE CALLED IN WINGMEN',
   armor: { gun: 1.2 },
   circles: [[0, 0, 1.9]],
@@ -1575,7 +1600,8 @@ KINDS.ace = {
 // It has no guns: it defends itself with missiles, and more of them if you sit above it.
 KINDS.nightwing = {
   hp: 170, r: 4, score: 4000, credits: 400, air: true, boss: true, facing: -1, name: 'Nightwing Stealth Bomber',
-  tagline: 'No missile lock until its bay opens',
+  features: 'Stealth, carpet bombing',
+  weakness: 'Open bomb bay',
   enrage: 'NIGHTWING: CLUSTER BOMBS ARMED',
   armor: { gun: 0.85 },
   // Bomb bay (weak spot while open) first, then centre body and wings.
@@ -1627,21 +1653,27 @@ KINDS.nightwing = {
     });
     const rel = e.x - g.camX;
     const onScreen = Math.abs(rel) < g.halfW + 4;
-    // Bomb bay: opens while it passes over (or near) the player.
-    const overPlayer = e.state === 'pass' && onScreen && p.alive && Math.abs(e.x - p.x) < 24 && e.y > p.y - 1;
-    e.bay = clamp(e.bay + (overPlayer ? dt * 2.5 : -dt * 2), 0, 1);
+    // Bombs keep the bomber's speed as they fall, so it must release them before it is
+    // over the player. Predict where a bomb dropped now would cross the player's height
+    // and carpet-bomb while that point is near the player. The bay opens a little earlier.
+    const drop = e.y - 0.6 - p.y;
+    const hit = drop > 2 ? bombImpact(e.x + e.circles[0][0], e.y - 0.6, e.vxWorld, e.vy - 1, p.y) : null;
+    // The player keeps moving with the scroll (and its own speed) while the bomb falls.
+    const miss = hit ? Math.abs(hit.x - (p.x + (g.scroll + p.vxRel) * hit.t)) : Infinity;
+    const bombing = e.state === 'pass' && onScreen && p.alive && hit !== null;
+    e.bay = clamp(e.bay + (bombing && miss < 24 ? dt * 3 : -dt * 2), 0, 1);
     e.stealth = e.bay < 0.5;
     e.weak[0] = e.bay > 0.5 ? 2 : 1;
     for (const d of u.doors) d.mesh.position.z = d.side * (0.46 + 0.9 * e.bay);
     u.bayLight.material.opacity = e.bay * (0.75 + Math.random() * 0.2);
-    if (e.bay >= 1) {
+    if (e.bay >= 1 && bombing && miss < 12) {
       e.bombT -= dt;
       if (e.bombT <= 0) {
         // Released bombs keep the bomber's velocity, then fall under gravity.
         const bx = e.x + e.circles[0][0];
         if (phase2) g.weapons.enemyBomb(bx, e.y - 0.6, e.vxWorld, e.vy - 1, { cluster: true, scale: 1.9, radius: 4, damage: 12 });
         else g.weapons.enemyBomb(bx, e.y - 0.6, e.vxWorld, e.vy - 1, { scale: 1.9, radius: 4.5, damage: 13 });
-        e.bombT = (phase2 ? 0.45 : 0.32) / g.diff.rate;
+        e.bombT = (phase2 ? 0.36 : 0.22) / g.diff.rate;
       }
     }
     // Missiles from the dorsal hatches; a pair, and sooner, if you sit above it.
@@ -1672,4 +1704,4 @@ KINDS.nightwing = {
 };
 
 export const BOSS_NAMES = Object.fromEntries(Object.entries(KINDS).filter(([, d]) => d.boss).map(([k, d]) => [k, d.name]));
-export const BOSS_INFO = Object.fromEntries(Object.entries(KINDS).filter(([, d]) => d.boss).map(([k, d]) => [k, { tagline: d.tagline }]));
+export const BOSS_INFO = Object.fromEntries(Object.entries(KINDS).filter(([, d]) => d.boss).map(([k, d]) => [k, { features: d.features, weakness: d.weakness }]));
