@@ -529,8 +529,7 @@ const KINDS = {
   // while its bay is open the belly is a weak spot.
   bomber: {
     hp: 100, r: 3, score: 2500, credits: 250, air: true, boss: true, facing: 1, name: 'B-9 Stratofortress',
-    tagline: 'Flying fortress: gunners above and below, bombs anything beneath it',
-    intel: 'B-9 STRATOFORTRESS: gunners cover above and below, and it drops back to bomb you from overhead. Hit the belly while the bay is open for double damage.',
+    tagline: 'Bombs from overhead. Weak: open bomb bay',
     enrage: 'STRATOFORTRESS: ENGINES ON FIRE',
     armor: { missile: 0.8 },
     // Belly (weak spot while the bay is open) first, then the airframe.
@@ -650,8 +649,7 @@ const KINDS = {
   // hangar under the gondola, and the open hangar is a big weak spot.
   airship: {
     hp: 260, r: 5, score: 6000, credits: 600, air: true, boss: true, facing: 1, name: 'Leviathan Airship',
-    tagline: 'Flying carrier: launches interceptors, gas bag shrugs off cannon fire',
-    intel: 'LEVIATHAN: cannon fire mostly passes through the gas bag, so use missiles or aim for the gondola underneath. It launches interceptors, and its open hangar takes heavy damage.',
+    tagline: 'Launches fighters. Weak: gondola, open hangar',
     enrage: 'LEVIATHAN IS LOSING GAS',
     armor: { gun: 0.75, missile: 1.2 },
     circles: [[1, -5.4, 2.4, 1.6], [11, 0, 3.4], [6, 0, 4.3], [0, 0, 4.6], [-6, 0, 4.3], [-11, 0, 3.4]],
@@ -927,8 +925,7 @@ function elevationBand(a, lo, hi) {
 // two flak guns on the bow cover that blind spot and can be knocked out.
 KINDS.behemoth = {
   hp: 170, r: 4, score: 4000, credits: 400, air: false, boss: true, facing: 1, name: 'Behemoth Land Fortress',
-  tagline: 'Super-heavy tank: armour shrugs off cannon fire, weak to bombs',
-  intel: 'BEHEMOTH: its armour shrugs off cannon fire, so bomb it. The glowing engine deck at the back is its weak spot, and the main gun cannot aim straight up. Knock out the two bow flak guns to make that approach safer.',
+  tagline: 'Shrugs off cannons. Weak: bombs, engine deck',
   enrage: 'BEHEMOTH: MORTARS ONLINE',
   armor: { gun: 0.55, missile: 0.8, bomb: 1.6 },
   // Flak guns (destructible), the engine deck (weak spot), then hull and turret.
@@ -1035,8 +1032,7 @@ KINDS.behemoth = {
 KINDS.dreadnought = {
   hp: 250, r: 5, score: 4500, credits: 450, air: false, boss: true, naval: true, facing: 1, wakeX: -11,
   name: 'Dreadnought Battleship',
-  tagline: 'Battleship: three triple turrets and AA, every gun can be knocked out',
-  intel: 'DREADNOUGHT: every turret can be destroyed on its own, and each one you knock out silences part of its firepower. The big turrets turn slowly and glow before a broadside, so keep moving. Bombs hit it hardest.',
+  tagline: 'Turrets can be destroyed. Weak: bombs',
   enrage: 'DREADNOUGHT: CRUISE MISSILES ARMED',
   armor: { gun: 0.6, missile: 0.9, bomb: 1.4 },
   // Turrets A, B, C and the two AA mounts (destructible), then hull and superstructure.
@@ -1150,8 +1146,7 @@ KINDS.dreadnought = {
 // The engines on the rear pylon are its weak spot.
 KINDS.titan = {
   hp: 150, r: 3, score: 3500, credits: 350, air: true, boss: true, facing: 1, name: 'Titan Heavy Gunship',
-  tagline: 'Armoured gunship: minigun that overheats, rocket pods, weak engines',
-  intel: 'TITAN: armoured against cannon fire. Its chin minigun overheats after a long burst, and that is your window. The twin engines on the rear pylon are its weak spot.',
+  tagline: 'Armoured, minigun overheats. Weak: engines',
   enrage: 'TITAN: DOOR GUNNER OPENS FIRE',
   armor: { gun: 0.7, missile: 1.2 },
   // Engines (weak spot) first, then nose to tail.
@@ -1209,15 +1204,15 @@ KINDS.titan = {
         e.heat += 1 / (phase2 ? 24 : 20);
         e.fireT = 1 / 12;
         if (e.heat >= 1) {
+          // No text: the barrel glowing red is the tell.
           e.overheat = phase2 ? 1.6 : 2.2;
           g.audio.play('overheat');
-          g.ui.popup(w.wx, w.wy - 1.5, 'OVERHEATED', 'crit');
         }
       } else if (!onTarget || !inRange) {
         e.heat = Math.max(0, e.heat - dt * 0.25);
       }
     }
-    chin.heat.material.opacity = e.overheat > 0 ? 0.6 + 0.3 * Math.random() : e.heat * 0.5;
+    chin.heat.material.opacity = e.overheat > 0 ? 0.85 + 0.15 * Math.random() : e.heat * e.heat * 0.4;
     // Rocket pods: lock tone, then an unguided ripple aimed ahead of the player.
     e.rocketT -= dt;
     if (e.rocketT <= 0.6 && !e.locked && inRange) {
@@ -1256,7 +1251,7 @@ KINDS.titan = {
       }
       if (Math.random() < dt * 8) g.fx.damageSmoke(e.x - 4.8, e.y + 3.2, 0, true);
     }
-    e.tag = e.overheat > 0 ? 'MINIGUN OVERHEATED' : e.locked ? 'ROCKET LOCK' : '';
+    e.tag = e.locked ? 'ROCKET LOCK' : '';
   },
 };
 
@@ -1334,8 +1329,7 @@ function aceGunSolution(e, g, tx, ty, tvx, tvy) {
 // locks. After every attack it is slow and exposed while it recovers.
 KINDS.ace = {
   hp: 80, r: 2, score: 3500, credits: 350, air: true, boss: true, headingModel: true, name: 'Crimson Ace',
-  tagline: 'Elite dogfighter: deadly accurate guns, missiles, bombs and flares',
-  intel: 'CRIMSON ACE: the fastest, most agile boss, with deadly accurate guns, heat-seeking missiles and bombing runs. It pops flares to shake off your missiles, but it has the thinnest armour of any boss and is slow and exposed for a moment after every attack.',
+  tagline: 'Fast, accurate, uses flares. Weak: thin armour',
   enrage: 'CRIMSON ACE CALLED IN WINGMEN',
   armor: { gun: 1.2 },
   circles: [[0, 0, 1.9]],
@@ -1581,8 +1575,7 @@ KINDS.ace = {
 // It has no guns: it defends itself with missiles, and more of them if you sit above it.
 KINDS.nightwing = {
   hp: 170, r: 4, score: 4000, credits: 400, air: true, boss: true, facing: -1, name: 'Nightwing Stealth Bomber',
-  tagline: 'Stealth bomber: carpet bombs and missiles, unlockable until its bay opens',
-  intel: 'NIGHTWING: stealth, so your missiles cannot lock on while its bomb bay is shut. It carpet-bombs from above and fires missiles, more of them if you sit above it. When the bay opens it can be locked and the bay takes double damage.',
+  tagline: 'No missile lock until its bay opens',
   enrage: 'NIGHTWING: CLUSTER BOMBS ARMED',
   armor: { gun: 0.85 },
   // Bomb bay (weak spot while open) first, then centre body and wings.
@@ -1679,4 +1672,4 @@ KINDS.nightwing = {
 };
 
 export const BOSS_NAMES = Object.fromEntries(Object.entries(KINDS).filter(([, d]) => d.boss).map(([k, d]) => [k, d.name]));
-export const BOSS_INFO = Object.fromEntries(Object.entries(KINDS).filter(([, d]) => d.boss).map(([k, d]) => [k, { tagline: d.tagline, intel: d.intel }]));
+export const BOSS_INFO = Object.fromEntries(Object.entries(KINDS).filter(([, d]) => d.boss).map(([k, d]) => [k, { tagline: d.tagline }]));

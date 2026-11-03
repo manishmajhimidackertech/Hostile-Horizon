@@ -976,9 +976,9 @@ export function createTitan() {
   });
   const chin = bossGun(model, [-6.0, -1.45, 0], 'minigun', minigunGeometry(), 2.4);
   const heat = new THREE.Mesh(cached('minigunHeat', () => {
-    const g = new THREE.CylinderGeometry(0.24, 0.24, 1.3, 8);
+    const g = new THREE.CylinderGeometry(0.3, 0.3, 1.9, 8);
     g.rotateZ(-HALF);
-    g.translate(1.75, 0, 0);
+    g.translate(1.45, 0, 0);
     return g;
   }), glowMat(0xff3a10));
   chin.pivot.add(heat);
