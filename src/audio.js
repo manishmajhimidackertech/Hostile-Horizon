@@ -212,6 +212,28 @@ export class AudioEngine {
         this._noise(2.8, 0.7, 'lowpass', 700, 60, 1, d + 0.05);
         break;
       }
+      case 'enemyBomb':
+        if (this._gate(name, 0.25)) this._osc('sine', 1100, 420, 0.7, 0.03);
+        break;
+      case 'charge':
+        // Rising whine before a heavy gun fires.
+        this._osc('sawtooth', 120, 520, 0.8, 0.05);
+        this._osc('sine', 240, 1040, 0.8, 0.04);
+        break;
+      case 'lock':
+        // Enemy missile lock tone.
+        for (let i = 0; i < 4; i++) this._osc('square', 1568, 1568, 0.05, 0.05, i * 0.09);
+        break;
+      case 'flare':
+        for (let i = 0; i < 4; i++) this._noise(0.12, 0.18, 'highpass', 3000, 1500, 1, i * 0.07);
+        break;
+      case 'overheat':
+        this._noise(0.9, 0.2, 'highpass', 4000, 1800);
+        break;
+      case 'partDown':
+        this._noise(0.6, 0.45, 'lowpass', 1200, 90);
+        this._osc('square', 220, 70, 0.35, 0.06);
+        break;
       case 'lose':
         [67, 63, 60, 55].forEach((n, i) => this._osc('triangle', NOTE(n), NOTE(n), 0.35, 0.12, i * 0.18));
         break;

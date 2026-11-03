@@ -131,7 +131,7 @@ export class Director {
       if (this.t >= this.mission.duration) {
         this.bossState = 'warning';
         this.bossTimer = 3;
-        g.ui.banner('WARNING — HEAVY TARGET INBOUND', 3, 'danger');
+        g.ui.banner('WARNING - HEAVY TARGET INBOUND', 3, 'danger');
         g.audio.play('warning');
       }
     } else if (this.bossState === 'warning') {
@@ -142,6 +142,7 @@ export class Director {
         g.setBoss(boss);
         g.audio.playSong('boss');
         this.nextWave = 9;
+        this.supplyT = 16;
       }
     } else if (this.bossState === 'fight') {
       // Light escorts during the boss fight on later missions.
@@ -151,6 +152,17 @@ export class Director {
         const y = rand(-8, 4);
         for (let i = 0; i < n; i++) g.addEnemy('fighter', g.camX + g.halfW + 5 + i * 4, y, { amp: 2, speed: 16 });
         this.nextWave = rand(9, 13);
+      }
+      // Supply drops keep missiles and bombs coming, since several bosses are built to be
+      // beaten with them.
+      this.supplyT -= dt;
+      const p = g.player;
+      if (this.supplyT <= 0 && p.alive) {
+        if (p.missiles < p.stats.missiles || p.bombs < p.stats.bombs) {
+          g.spawnPickup('ammo', g.camX + rand(-0.4, 0.3) * g.halfW, g.halfH + 2);
+          g.ui.popup(g.camX, g.halfH - 6, 'SUPPLY DROP', 'ammo');
+        }
+        this.supplyT = rand(16, 22);
       }
     }
   }

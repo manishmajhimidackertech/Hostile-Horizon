@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#0b1522" />
-    <meta name="description" content="Hostile Horizon — a side-scrolling aerial combat game. Dogfight, bomb and upgrade your jet. Installable and playable offline." />
+    <meta name="description" content="Hostile Horizon - a side-scrolling aerial combat game. Dogfight, bomb and upgrade your jet. Installable and playable offline." />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Hostile Horizon" />
@@ -42,7 +42,7 @@
           </button>
         </div>
         <div class="boss-bar" id="boss-bar" hidden>
-          <div class="boss-name" id="boss-name"></div>
+          <div class="boss-name"><span id="boss-name"></span><span class="boss-tag" id="boss-tag"></span></div>
           <div class="meter boss"><div class="meter-fill" id="boss-fill"></div></div>
         </div>
       </div>
@@ -144,16 +144,18 @@
             <span></span>
           </header>
           <div class="help-body">
-            <table class="controls">
-              <thead><tr><th></th><th>Keyboard</th><th>Mouse</th><th>Touch</th><th>Gamepad</th></tr></thead>
-              <tbody>
-                <tr><th>Fly</th><td>WASD / Arrows</td><td>Move pointer</td><td>Drag left side</td><td>Left stick</td></tr>
-                <tr><th>Cannons</th><td>Space (hold)</td><td>Left button</td><td>FIRE (hold)</td><td>A / RT</td></tr>
-                <tr><th>Missile</th><td>E</td><td>Right button</td><td>MSL</td><td>B / RB</td></tr>
-                <tr><th>Bomb</th><td>Q</td><td>Wheel / middle</td><td>BOMB</td><td>X / LB</td></tr>
-                <tr><th>Pause</th><td>Esc / P</td><td>—</td><td>II button</td><td>Start</td></tr>
-              </tbody>
-            </table>
+            <div class="controls-wrap">
+              <table class="controls">
+                <thead><tr><th></th><th>Keyboard</th><th>Mouse</th><th>Touch</th><th>Gamepad</th></tr></thead>
+                <tbody>
+                  <tr><th>Fly</th><td>WASD / Arrows</td><td>Move pointer</td><td>Drag left side</td><td>Left stick</td></tr>
+                  <tr><th>Cannons</th><td>Space (hold)</td><td>Left button</td><td>FIRE (hold)</td><td>A / RT</td></tr>
+                  <tr><th>Missile</th><td>E</td><td>Right button</td><td>MSL</td><td>B / RB</td></tr>
+                  <tr><th>Bomb</th><td>Q</td><td>Wheel / middle</td><td>BOMB</td><td>X / LB</td></tr>
+                  <tr><th>Pause</th><td>Esc / P</td><td>-</td><td>II button</td><td>Start</td></tr>
+                </tbody>
+              </table>
+            </div>
             <ul class="tips">
               <li><b>Cannons</b> fire where your nose points. Dive to strafe ground targets.</li>
               <li><b>Missiles</b> lock onto the nearest aircraft. They can also shoot down enemy rockets.</li>
@@ -162,6 +164,7 @@
               <li>Pick up <b>crates</b>. Green crates repair your hull and olive crates restock ammo.</li>
               <li>Each theatre has its own dangers: dust storms, gunboats at sea, lava bombs, lightning and searchlights.</li>
               <li>Each aircraft has its own strengths: some repair themselves after a few seconds out of fire, others fire missiles or drop bombs several at a time.</li>
+              <li>Every <b>boss</b> has its own strengths and weaknesses. Check its strengths and weaknesses under Target in the hangar, look for <b>WEAK SPOT</b> hits, and watch the status next to its health bar. Supply crates drop during boss fights.</li>
               <li><b>Install</b>: use your browser's “Install app” option, or on iOS use Share → Add to Home Screen. The game works offline once installed.</li>
             </ul>
           </div>

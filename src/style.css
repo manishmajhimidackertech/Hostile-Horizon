@@ -250,6 +250,7 @@ button {
 .mission-name { color: var(--accent-2); font-weight: 700; font-size: 15px; line-height: 1.2; text-wrap: balance; overflow-wrap: anywhere; }
 .mission-info { text-align: center; }
 .mission-boss { color: var(--muted); font-size: 12px; margin-top: 6px; }
+.mission-boss b { color: #c8d4df; font-weight: 600; }
 /* Record + launch sit at the bottom of the card, with at least a 16px gap above them. */
 .sortie-foot { margin-top: auto; padding-top: 16px; display: flex; flex-direction: column; gap: 10px; }
 .launch { font-size: 18px; padding: 0.9em; }
@@ -342,7 +343,8 @@ button {
 
 /* ------------------------------------------------------------------ help / settings */
 
-.controls { width: 100%; border-collapse: collapse; font-size: 13px; margin: 8px 0 14px; display: block; overflow-x: auto; }
+.controls-wrap { width: 100%; overflow-x: auto; margin: 8px 0 14px; }
+.controls { width: 100%; border-collapse: collapse; font-size: 13px; }
 .controls th, .controls td { padding: 7px 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.07); text-align: left; white-space: nowrap; }
 .controls thead th { color: var(--muted); font-weight: 600; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; }
 .controls tbody th { color: var(--accent-2); }
@@ -452,6 +454,8 @@ button {
   text-align: center;
 }
 .boss-name { font-size: 12px; letter-spacing: 0.25em; color: #ffb7a8; margin-bottom: 4px; text-shadow: 0 1px 2px #000; }
+.boss-tag { margin-left: 10px; letter-spacing: 0.12em; color: #ffd35a; }
+.boss-tag:empty { display: none; }
 .meter.boss { width: min(420px, 60vw); height: 10px; }
 .meter.boss .meter-fill { background: linear-gradient(90deg, #b8231a, #ff6b4a); }
 
@@ -482,6 +486,9 @@ button {
 .popup.coin { color: var(--accent-2); }
 .popup.heal { color: var(--good); }
 .popup.ammo { color: #bfe0ff; }
+.popup.crit { color: #ffd35a; font-size: 13px; letter-spacing: 0.08em; }
+.popup.armor { color: #c9d2da; font-size: 12px; letter-spacing: 0.08em; }
+.popup.part { color: #ff9a6b; font-size: 16px; letter-spacing: 0.06em; }
 
 #banner {
   position: absolute;

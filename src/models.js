@@ -23,6 +23,7 @@ export const MAT = {
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   }),
+  burnt: new THREE.MeshLambertMaterial({ color: 0x1c1a18 }),
   glowBlue: new THREE.MeshBasicMaterial({
     color: 0x7fd4ff,
     transparent: true,
@@ -351,6 +352,11 @@ export function createBomber() {
   });
   const body = mesh(geo);
   model.add(body);
+  // Belly bomb bay: lit red while the doors are open.
+  const bayLight = new THREE.Mesh(cached('bomber:bay', () => new THREE.BoxGeometry(3.4, 0.3, 1.3)), glowMat(0xff3020, 0));
+  bayLight.position.set(1.0, -1.15, 0);
+  model.add(bayLight);
+  root.userData.bayLight = bayLight;
   root.userData.meshes = [body];
   root.userData.turrets = [
     makeTurret(model, [1.6, 1.3, 0], 0.6),
@@ -439,6 +445,11 @@ export function createAirship() {
     makeTurret(model, [-7, 4.1, -0.6], 0.9),
     makeTurret(model, [5, 4.1, -0.6], 0.9),
   ];
+  // Hangar under the gondola: lit while the bay is open to launch interceptors.
+  const hangarLight = new THREE.Mesh(cached('airship:hangar', () => new THREE.BoxGeometry(5, 0.4, 2.2)), glowMat(0xffa040, 0));
+  hangarLight.position.set(-1.2, -6.45, 0);
+  model.add(hangarLight);
+  root.userData.hangarLight = hangarLight;
   root.userData.props = props;
   root.userData.turrets = turrets;
   root.userData.meshes = [body, ...props, ...turrets.flatMap((t) => t.meshes)];
@@ -513,12 +524,14 @@ export function createMissile(enemy = false) {
   return g;
 }
 
-export function createBomb() {
-  const geo = cached('bomb', () => merge([
-    part(sphere(0.35, 8, 6), '#3e4a2c', [0, 0, 0], [0, 0, 0], [2, 1, 1]),
-    part(box(0.35, 0.6, 0.06), '#2a3120', [-0.75, 0, 0]),
-    part(box(0.35, 0.06, 0.6), '#2a3120', [-0.75, 0, 0]),
-    part(box(0.12, 0.72, 0.72), '#d0b050', [0.1, 0, 0]),
+// Player bombs are olive with a yellow band; enemy bombs are gunmetal with a red band
+// (each boss scales them to its own size).
+export function createBomb(enemy = false) {
+  const geo = cached('bomb:' + enemy, () => merge([
+    part(sphere(0.35, 8, 6), enemy ? '#33363a' : '#3e4a2c', [0, 0, 0], [0, 0, 0], [2, 1, 1]),
+    part(box(0.35, 0.6, 0.06), enemy ? '#1b1c1e' : '#2a3120', [-0.75, 0, 0]),
+    part(box(0.35, 0.06, 0.6), enemy ? '#1b1c1e' : '#2a3120', [-0.75, 0, 0]),
+    part(box(0.12, 0.72, 0.72), enemy ? '#c0392b' : '#d0b050', [0.1, 0, 0]),
   ]));
   const g = new THREE.Group();
   g.add(mesh(geo));
@@ -769,138 +782,484 @@ export function volcanoParts(x, y, z, r, h, theme) {
 
 // ---------------------------------------------------------------- extra bosses
 
-// Aimable gun: returns { pivot, pos, type } and adds the barrel to `parent`.
-function bossGun(parent, pos, type, scale = 1) {
-  const pivot = new THREE.Group();
-  pivot.position.set(pos[0], pos[1], pos[2] || 0);
-  const barrel = mesh(barrelGeometry(type !== 'main'));
-  barrel.scale.set(type === 'main' ? 2.2 * scale : 1.3 * scale, type === 'main' ? 1.6 * scale : scale, type === 'main' ? 1.6 * scale : scale);
-  pivot.add(barrel);
-  parent.add(pivot);
-  return { pivot, pos: [pos[0], pos[1]], type, mesh: barrel };
+// Side-profile extrusion: `points` are [x, y], extruded `depth` along z and centred on `z`.
+const prof = (points, depth, color, z = 0) => part(slab(points, depth), color, [0, 0, z]);
+// Plan-view extrusion: `points` are [x, z], `h` thick and centred on height `y`.
+const plan = (points, h, color, y = 0) => wing(points, h, color, y);
+const scalePts = (pts, k) => pts.map(([a, b]) => [a * k, b * k]);
+// A disc facing the camera (axis along z).
+const disc = (r, depth, color, p, seg = 12) => part(cyl(r, r, depth, seg), color, p, [HALF, 0, 0]);
+
+// Per-instance additive glow (heat, charge, bay lights) so each boss can fade its own.
+function glowMat(color, opacity = 0) {
+  return new THREE.MeshBasicMaterial({
+    color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
+  });
 }
 
-// Heavy twin-rotor gunship (geometry built facing -X, mirrored to fly facing +X).
+// Charge-up glow at a gun muzzle: hidden (scale 0) until a boss telegraphs a shot.
+function muzzleGlow(pivot, x, r = 0.7) {
+  const m = new THREE.Mesh(cached('glowBall', () => new THREE.IcosahedronGeometry(1, 1)), glowMat(0xffb347, 0.9));
+  m.position.set(x, 0, 0);
+  m.scale.setScalar(0.001);
+  m.userData.r = r;
+  pivot.add(m);
+  return m;
+}
+
+// Six-barrel rotary cannon along +X with its heat glow overlay.
+function minigunGeometry() {
+  return cached('minigun', () => {
+    const P = [part(cyl(0.24, 0.26, 0.7, 8), '#22251d', [0.3, 0, 0], ALONG_X)];
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * PI * 2;
+      P.push(part(cyl(0.055, 0.055, 1.9, 5), '#15170f', [1.5, Math.cos(a) * 0.14, Math.sin(a) * 0.14], ALONG_X));
+    }
+    P.push(part(cyl(0.21, 0.21, 0.12, 8), '#22251d', [1.2, 0, 0], ALONG_X));
+    P.push(part(cyl(0.21, 0.21, 0.12, 8), '#22251d', [2.35, 0, 0], ALONG_X));
+    return merge(P);
+  });
+}
+
+// Heavy tank cannon along +X: long tube, fume extractor and a slotted muzzle brake.
+function heavyBarrelGeometry() {
+  return cached('heavyBarrel', () => merge([
+    part(cyl(0.24, 0.3, 7.2, 8), '#2b2e22', [3.6, 0, 0], ALONG_X),
+    part(cyl(0.4, 0.4, 1.1, 8), '#3a3d2c', [3.3, 0, 0], ALONG_X),
+    part(cyl(0.5, 0.5, 0.9, 8), '#3a3d2c', [0.45, 0, 0], ALONG_X),
+    part(box(0.95, 0.56, 0.66), '#23251b', [7.35, 0, 0]),
+    part(box(0.3, 0.6, 0.72), '#16170f', [7.25, 0, 0]),
+  ]));
+}
+
+// Three naval guns side by side along +X, with canvas blast bags at the roots.
+function tripleBarrelGeometry() {
+  return cached('tripleBarrel', () => {
+    const P = [];
+    for (const z of [-0.46, 0, 0.46]) {
+      P.push(part(cyl(0.13, 0.18, 4.4, 7), '#20262b', [2.4, 0, z], ALONG_X));
+      P.push(part(cyl(0.2, 0.2, 0.5, 7), '#c9c2a8', [0.35, 0, z], ALONG_X));
+    }
+    return merge(P);
+  });
+}
+
+// Twin light AA guns with a small gun shield.
+function twinAAGeometry() {
+  return cached('twinAA', () => merge([
+    part(box(0.7, 0.75, 1.1), '#59636b', [0.1, 0, 0]),
+    part(cyl(0.07, 0.09, 2.0, 5), '#1b1f23', [1.2, 0.12, 0.25], ALONG_X),
+    part(cyl(0.07, 0.09, 2.0, 5), '#1b1f23', [1.2, 0.12, -0.25], ALONG_X),
+    part(cyl(0.12, 0.12, 0.3, 6), '#1b1f23', [2.2, 0.12, 0.25], ALONG_X),
+    part(cyl(0.12, 0.12, 0.3, 6), '#1b1f23', [2.2, 0.12, -0.25], ALONG_X),
+  ]));
+}
+
+// Aimable gun: returns { pivot, pos, type, len, mesh, glow } and adds it to `parent`.
+// `len` is the distance from the pivot to the muzzle (where rounds appear).
+function bossGun(parent, pos, type, geo, len, glowR = 0) {
+  const pivot = new THREE.Group();
+  pivot.position.set(pos[0], pos[1], pos[2] || 0);
+  const barrel = mesh(geo);
+  pivot.add(barrel);
+  parent.add(pivot);
+  const gun = { pivot, pos: [pos[0], pos[1]], type, len, mesh: barrel };
+  if (glowR) gun.glow = muzzleGlow(pivot, len, glowR);
+  return gun;
+}
+
+// Heavy tandem-rotor gunship (built facing -X, mirrored to fly facing +X).
+// Armoured cabin, glazed nose with a chin minigun, stub wings with rocket pods, twin
+// turboshaft engines on the tall rear pylon (the weak spot) and two three-blade rotors.
 export function createTitan() {
   const root = new THREE.Group();
   const model = new THREE.Group();
   model.rotation.y = PI; // built facing -X, flies facing +X
   root.add(model);
-  const hull = '#4d5347';
-  const dark = '#23271f';
-  const geo = cached('titan', () => merge([
-    part(box(11, 2.6, 2.6), hull, [0, 0, 0]),
-    part(sphere(1.4, 10, 8), hull, [-5.6, -0.1, 0], [0, 0, 0], [1.3, 0.95, 0.95]),
-    part(sphere(0.9, 8, 6), '#1c2a36', [-6.3, 0.4, 0], [0, 0, 0], [1, 0.7, 0.9]),
-    part(box(2.2, 2.2, 2.0), hull, [-4.2, 1.9, 0]),
-    part(box(3.0, 3.0, 2.0), hull, [4.4, 2.2, 0]),
-    part(box(8.5, 0.3, 2.7), dark, [0, -1.35, 0]),
-    part(box(1.4, 0.2, 6.4), hull, [0.5, -0.6, 0]),
-    ...[-2.9, 2.9].map((z) => part(cyl(0.45, 0.45, 2.6, 8), dark, [0.3, -0.9, z], ALONG_X)),
-    ...[-1.1, 1.1].flatMap((z) => [part(box(0.18, 1.2, 0.18), dark, [-3, -1.9, z]), part(box(0.18, 1.2, 0.18), dark, [3, -1.9, z])]),
-    ...[-1.1, 1.1].map((z) => part(box(8.4, 0.2, 0.25), dark, [0, -2.5, z])),
-    part(box(1.4, 0.35, 2.8), '#c9b24a', [1.6, 0.4, 0]),
-  ]));
+  const olive = '#56603f';
+  const shade = '#465036';
+  const belly = '#3d4530';
+  const dark = '#1d2016';
+  const glass = '#1f3140';
+  const geo = cached('titan', () => {
+    const P = [];
+    // Cabin with an upswept rear loading ramp.
+    P.push(prof([[-4.6, -1.3], [4.3, -1.3], [5.7, -0.35], [5.9, 1.25], [-4.6, 1.25]], 2.6, olive));
+    P.push(part(box(9.0, 0.16, 2.64), belly, [-0.1, -1.24, 0]));
+    // Nose and wrap-around glazing.
+    P.push(prof([[-4.6, -1.3], [-6.0, -1.15], [-7.1, -0.55], [-7.35, 0.1], [-7.0, 0.55], [-6.0, 1.15], [-4.6, 1.25]], 2.4, olive));
+    P.push(prof([[-5.95, 0.22], [-7.2, 0.42], [-6.12, 1.2], [-4.9, 1.27], [-4.9, 0.28]], 2.46, glass));
+    P.push(part(box(0.12, 1.0, 2.5), olive, [-6.0, 0.72, 0]));
+    P.push(part(box(0.12, 1.0, 2.5), olive, [-5.35, 0.75, 0]));
+    P.push(prof([[-6.6, -0.75], [-7.15, -0.5], [-7.32, 0.0], [-6.6, -0.1]], 2.2, glass)); // chin window
+    // Cabin windows, door and armour panel seams.
+    for (let x = -3.0; x <= 3.0; x += 1.2) P.push(part(box(0.55, 0.5, 2.66), glass, [x, 0.5, 0]));
+    P.push(part(box(1.2, 1.95, 2.63), shade, [-3.9, -0.25, 0]));
+    P.push(part(box(0.75, 0.55, 2.66), glass, [-3.9, 0.3, 0]));
+    for (const x of [-2.4, 0.6, 3.6]) P.push(part(box(0.07, 2.5, 2.63), belly, [x, 0, 0]));
+    P.push(part(box(9.4, 0.07, 2.63), belly, [0, -0.35, 0]));
+    // Roundel and tail band.
+    P.push(part(box(0.35, 1.95, 2.64), '#d2b23a', [4.85, 0.27, 0]));
+    // Drive-shaft tunnel along the roof.
+    P.push(part(box(7.6, 0.55, 1.1), shade, [-0.7, 1.5, 0]));
+    // Forward rotor pylon and hub.
+    P.push(prof([[-5.9, 1.2], [-3.0, 1.2], [-3.4, 2.05], [-4.3, 2.6], [-5.4, 2.4]], 1.6, olive));
+    P.push(part(cyl(0.32, 0.45, 0.6, 8), dark, [-4.45, 2.85, 0]));
+    // Tall rear pylon.
+    P.push(prof([[1.9, 1.2], [5.9, 1.2], [6.6, 3.4], [6.3, 4.4], [3.9, 4.55], [2.8, 3.0]], 1.7, olive));
+    P.push(part(cyl(0.32, 0.45, 0.6, 8), dark, [5.0, 4.8, 0]));
+    P.push(part(box(0.06, 2.8, 1.74), belly, [4.2, 2.9, 0]));
+    P.push(disc(0.42, 1.76, '#1b1d16', [3.55, 1.95, 0]));
+    P.push(disc(0.27, 1.78, '#b8382d', [3.55, 1.95, 0]));
+    // Twin turboshaft engines on the pylon sides: intakes, cowlings and hot exhausts.
+    for (const z of [-1.3, 1.3]) {
+      P.push(part(cyl(0.55, 0.62, 3.2, 10), shade, [4.8, 3.05, z], ALONG_X));
+      P.push(part(cyl(0.42, 0.55, 0.5, 10), dark, [3.0, 3.05, z], ALONG_X));
+      P.push(part(cyl(0.5, 0.4, 0.55, 10), '#2a2a26', [6.6, 3.05, z], ALONG_X));
+      P.push(part(cyl(0.3, 0.3, 0.12, 10), '#c46a2a', [6.9, 3.05, z], ALONG_X));
+      P.push(part(box(2.0, 0.12, 0.3), '#c46a2a', [4.9, 3.05, z * 1.46]));
+    }
+    // Fuel sponsons, rear gear in them.
+    for (const z of [-1.45, 1.45]) {
+      P.push(part(sphere(1, 10, 6), shade, [0.6, -0.8, z], [0, 0, 0], [3.2, 0.62, 0.5]));
+      P.push(part(box(0.18, 0.8, 0.18), dark, [3.2, -1.55, z]));
+      P.push(part(cyl(0.45, 0.45, 0.32, 10), dark, [3.2, -1.95, z], [HALF, 0, 0]));
+      P.push(part(cyl(0.2, 0.2, 0.36, 8), '#5a5d52', [3.2, -1.95, z], [HALF, 0, 0]));
+    }
+    // Nose gear.
+    for (const z of [-0.75, 0.75]) {
+      P.push(part(box(0.16, 0.7, 0.16), dark, [-5.1, -1.6, z]));
+      P.push(part(cyl(0.38, 0.38, 0.28, 10), dark, [-5.1, -1.95, z], [HALF, 0, 0]));
+    }
+    // Stub wings with seven-tube rocket pods.
+    P.push(part(box(1.7, 0.18, 6.4), olive, [-1.6, -0.25, 0], [0, 0, 0.05]));
+    for (const z of [-2.75, 2.75]) {
+      P.push(part(box(0.5, 0.45, 0.2), dark, [-1.6, -0.55, z]));
+      P.push(part(cyl(0.5, 0.5, 2.3, 10), shade, [-1.6, -0.95, z], ALONG_X));
+      P.push(part(cyl(0.42, 0.5, 0.25, 10), dark, [-2.8, -0.95, z], ALONG_X));
+      for (let i = 0; i < 7; i++) {
+        const a = (i / 6) * PI * 2;
+        const rr = i === 6 ? 0 : 0.26;
+        P.push(part(cyl(0.08, 0.08, 0.06, 6), '#8a2a22', [-2.95, -0.95 + Math.cos(a) * rr, z + Math.sin(a) * rr], ALONG_X));
+      }
+    }
+    // Chin turret ball.
+    P.push(part(sphere(0.55, 8, 6), dark, [-6.0, -1.35, 0]));
+    return merge(P);
+  });
   const body = mesh(geo);
   model.add(body);
-  const rotorGeo = cached('titan:rotor', () => merge([
-    part(box(11, 0.08, 0.5), '#16180f'),
-    part(box(0.5, 0.08, 11), '#16180f'),
-    part(box(7.8, 0.08, 0.5), '#16180f', [0, 0, 0], [0, PI / 4, 0]),
-  ]));
-  const rotors = [[-4.2, 3.1], [4.4, 3.8]].map(([x, y]) => {
+  // Three-blade rotors with drooping blades, yellow tips and a faint blur disc.
+  const rotorGeo = cached('titan:rotor', () => {
+    const P = [part(cone(0.35, 0.5, 8), '#16180f', [0, 0.25, 0])];
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * PI * 2;
+      const blade = merge([
+        part(box(6.4, 0.08, 0.52), '#16180f', [3.4, 0, 0]),
+        part(box(0.45, 0.09, 0.54), '#d2b23a', [6.4, 0, 0]),
+      ]);
+      blade.rotateZ(-0.035);
+      blade.rotateY(a);
+      P.push(blade);
+    }
+    return merge(P);
+  });
+  const blurMat = new THREE.MeshBasicMaterial({ color: 0x1a1c15, transparent: true, opacity: 0.12, depthWrite: false });
+  const rotors = [[-4.45, 3.2], [5.0, 5.15]].map(([x, y]) => {
     const r = mesh(rotorGeo);
     r.position.set(x, y, 0);
     model.add(r);
+    const blur = new THREE.Mesh(cached('rotorBlur', () => new THREE.CylinderGeometry(6.6, 6.6, 0.02, 28)), blurMat);
+    blur.position.set(x, y, 0);
+    model.add(blur);
     return r;
   });
-  const guns = [bossGun(model, [-5.9, -1.3, -0.4], 'minigun', 0.9)];
+  const chin = bossGun(model, [-6.0, -1.45, 0], 'minigun', minigunGeometry(), 2.4);
+  const heat = new THREE.Mesh(cached('minigunHeat', () => {
+    const g = new THREE.CylinderGeometry(0.3, 0.3, 1.9, 8);
+    g.rotateZ(-HALF);
+    g.translate(1.45, 0, 0);
+    return g;
+  }), glowMat(0xff3a10));
+  chin.pivot.add(heat);
+  chin.heat = heat;
+  const door = bossGun(model, [-3.9, -0.1, -1.45], 'door', barrelGeometry(false), 2.2);
+  door.mesh.scale.set(0.8, 0.8, 0.8);
   root.userData.rotors = rotors;
-  root.userData.guns = guns;
-  root.userData.meshes = [body, ...rotors, ...guns.map((g) => g.mesh)];
+  root.userData.guns = [chin, door];
+  root.userData.meshes = [body, ...rotors, chin.mesh, door.mesh];
   return root;
 }
 
 // Land fortress super-tank (built facing -X, mirrored to drive facing +X). Base at y = 0.
+// Twin tracks behind armoured skirts, a sloped casemate, a heavy main gun that cannot
+// elevate past ~65 degrees, two flak turrets, an elevating missile rack and a hot
+// rear engine deck (the weak spot).
 export function createBehemoth() {
   const root = new THREE.Group();
   const model = new THREE.Group();
   model.rotation.y = PI; // built facing -X, travels facing +X
   root.add(model);
-  const hull = '#5a5f3f';
-  const dark = '#23251a';
+  const hull = '#5d6342';
+  const shade = '#4b5035';
+  const dark = '#24261b';
+  const track = '#22231c';
+  const sand = '#8a7f55';
+  const green = '#3f4a2c';
   const geo = cached('behemoth', () => {
-    const P = [
-      part(box(14, 2.2, 4.4), hull, [0, 2.1, 0]),
-      part(box(2.6, 1.6, 4.4), hull, [-7.6, 1.8, 0], [0, 0, 0.55]),
-      part(box(15, 1.7, 1.1), dark, [0, 0.95, 2.4]),
-      part(box(15, 1.7, 1.1), dark, [0, 0.95, -2.4]),
-      part(box(8, 2.0, 3.6), hull, [0.6, 4.2, 0]),
-      part(box(5, 0.5, 3.2), '#c9b24a', [0.6, 5.3, 0]),
-      part(box(3.4, 2.0, 3.2), '#3a3d2a', [5.6, 3.9, 0]),
-      part(cyl(1.6, 1.8, 1.0, 10), dark, [-2.2, 5.6, 0]),
-    ];
-    for (let i = 0; i < 7; i++) {
-      const x = -6 + i * 2;
-      P.push(part(cyl(0.75, 0.75, 0.4, 10), '#34372a', [x, 0.9, 2.95], [HALF, 0, 0]));
+    const P = [];
+    // Tracks, road wheels, sprockets and idlers on both sides.
+    for (const s of [-1, 1]) {
+      P.push(prof([[-8.3, 1.0], [-7.4, 0.05], [6.9, 0.05], [7.9, 1.0], [7.6, 1.95], [-8.0, 1.95]], 1.3, track, s * 2.45));
+      for (let i = 0; i < 8; i++) {
+        const x = -6.2 + i * 1.75;
+        P.push(part(cyl(0.62, 0.62, 0.2, 10), '#3b3e2e', [x, 0.72, s * 3.12], [HALF, 0, 0]));
+        P.push(part(cyl(0.24, 0.24, 0.24, 8), '#5a5c4a', [x, 0.72, s * 3.16], [HALF, 0, 0]));
+      }
+      P.push(part(cyl(0.78, 0.78, 0.22, 10), dark, [7.2, 1.08, s * 3.1], [HALF, 0, 0]));
+      P.push(part(cyl(0.7, 0.7, 0.22, 10), '#3b3e2e', [-7.6, 1.15, s * 3.1], [HALF, 0, 0]));
+      // Armoured side skirts in panels, hiding the top of the running gear.
+      P.push(prof([[-7.7, 1.55], [7.0, 1.55], [7.6, 2.75], [-7.3, 2.75]], 0.16, shade, s * 3.28));
+      for (let i = 0; i < 6; i++) P.push(part(box(0.07, 1.15, 0.2), dark, [-5.2 + i * 2.4, 2.15, s * 3.3]));
+      // Headlights, tow hooks and stowage.
+      P.push(part(box(0.25, 0.35, 0.5), '#f2e7b0', [-8.55, 2.55, s * 1.6]));
+      P.push(part(box(0.4, 0.3, 0.3), dark, [-8.6, 1.75, s * 1.2]));
+      P.push(part(box(0.9, 0.7, 0.5), green, [7.85, 2.5, s * 1.4]));
     }
-    for (let i = 0; i < 3; i++) P.push(part(cyl(0.22, 0.22, 1.4, 6), '#8a2a22', [4.6 + i * 0.8, 5.3, 0.6], [0, 0, -0.4]));
+    // Lower hull with a sloped glacis.
+    P.push(prof([[-8.6, 1.6], [-7.0, 1.0], [7.0, 1.0], [7.8, 1.6], [7.8, 3.1], [-6.2, 3.25], [-8.6, 2.3]], 4.6, hull));
+    for (let i = 0; i < 4; i++) P.push(part(box(0.5, 0.2, 3.6), dark, [-7.95 + i * 0.6, 2.42 + i * 0.25, 0], [0, 0, 0.38])); // spare track links
+    // Casemate.
+    P.push(prof([[-5.6, 3.1], [6.6, 3.1], [7.1, 4.3], [-4.6, 4.5]], 3.9, hull));
+    P.push(prof([[-3.8, 3.2], [-1.2, 3.2], [-2.0, 4.4], [-4.0, 4.45]], 3.94, sand));
+    P.push(prof([[1.0, 3.2], [3.6, 3.2], [2.9, 4.36], [0.2, 4.4]], 3.94, green));
+    // Rear engine deck: grille slats over glowing vents, two exhaust stacks.
+    P.push(part(box(3.4, 0.08, 2.9), '#d0702c', [5.1, 4.32, 0]));
+    for (let i = 0; i < 6; i++) P.push(part(box(0.22, 0.16, 3.0), dark, [3.65 + i * 0.58, 4.42, 0]));
+    for (const z of [-1.45, 1.45]) {
+      P.push(part(cyl(0.3, 0.38, 1.7, 8), dark, [6.4, 5.0, z]));
+      P.push(part(cyl(0.34, 0.3, 0.2, 8), '#3a2a20', [6.4, 5.9, z]));
+    }
+    // Main turret with rear bustle, cupola, periscopes, smoke dischargers and antenna.
+    P.push(prof([[-3.9, 4.4], [1.9, 4.4], [2.5, 5.4], [1.8, 6.5], [-3.1, 6.5], [-4.2, 5.5]], 3.6, hull));
+    P.push(prof([[1.6, 4.9], [3.3, 5.05], [3.3, 6.25], [1.6, 6.4]], 3.0, shade));
+    P.push(prof([[-2.6, 4.5], [-0.6, 4.5], [-1.2, 6.45], [-2.9, 6.45]], 3.64, sand));
+    P.push(part(cyl(0.55, 0.65, 0.6, 8), shade, [-0.9, 6.8, -0.75]));
+    P.push(part(cyl(0.6, 0.6, 0.12, 8), dark, [-0.9, 7.15, -0.75]));
+    P.push(part(box(0.4, 0.3, 0.3), dark, [-2.3, 6.65, 0.9]));
+    for (const s of [-1, 1]) {
+      for (let i = 0; i < 3; i++) P.push(part(cyl(0.12, 0.12, 0.55, 6), dark, [-2.8 + i * 0.3, 6.1, s * 1.9], [s * 0.5, 0, -0.4]));
+    }
+    P.push(part(cyl(0.03, 0.05, 3.6, 4), dark, [2.6, 8.1, -1.0], [0, 0, -0.25]));
+    P.push(part(box(1.1, 1.5, 1.8), '#3b3e2c', [-4.4, 5.45, 0])); // gun mantlet
     return merge(P);
   });
   const body = mesh(geo);
   model.add(body);
-  const guns = [
-    bossGun(model, [-2.2, 6.1, 0], 'main', 1.1),
-    bossGun(model, [3.2, 5.4, -1.2], 'flak'),
-    bossGun(model, [-5.2, 3.6, -1.6], 'flak'),
-  ];
+  const flakGeo = cached('behemoth:flakBase', () => merge([
+    part(cyl(0.75, 0.9, 0.55, 8), shade),
+    part(box(0.9, 0.9, 1.3), hull, [0.1, 0.55, 0]),
+  ]));
+  const guns = [bossGun(model, [-4.6, 5.45, 0], 'main', heavyBarrelGeometry(), 7.6, 1.1)];
+  for (const [x, y, z] of [[-5.0, 4.6, -1.5], [-5.0, 4.6, 1.5]]) {
+    const base = mesh(flakGeo);
+    base.position.set(x, y - 0.25, z);
+    model.add(base);
+    const gun = bossGun(model, [x, y + 0.45, z], 'flak', barrelGeometry(true), 2.4);
+    gun.mesh.scale.set(1.2, 1, 1);
+    gun.base = base;
+    guns.push(gun);
+  }
+  // Missile rack on an elevating mount: launches over the rear deck.
+  const rack = new THREE.Group();
+  rack.position.set(0.0, 6.5, 0.85);
+  const rackMesh = mesh(cached('behemoth:rack', () => {
+    const P = [part(box(2.6, 1.0, 1.4), green, [1.2, 0.5, 0])];
+    for (let r = 0; r < 2; r++) for (let c = 0; c < 3; c++) {
+      P.push(part(cyl(0.18, 0.18, 0.08, 8), dark, [2.52, 0.27 + r * 0.46, -0.42 + c * 0.42], ALONG_X));
+      P.push(part(cone(0.12, 0.28, 6), '#a3302a', [2.62, 0.27 + r * 0.46, -0.42 + c * 0.42], ALONG_X));
+    }
+    P.push(part(box(2.62, 0.16, 1.42), '#c9b24a', [1.2, 0.92, 0]));
+    P.push(part(box(0.5, 0.5, 0.5), dark, [0.2, -0.15, 0]));
+    return merge(P);
+  }));
+  rack.add(rackMesh);
+  model.add(rack);
+  // Hot engine deck: the vents glow and pulse, the giveaway for its weak spot.
+  const vents = new THREE.Mesh(cached('behemoth:vents', () => new THREE.BoxGeometry(3.3, 0.1, 2.8)), glowMat(0xff7a2a, 0.5));
+  vents.position.set(5.1, 4.4, 0);
+  model.add(vents);
+  root.userData.vents = vents;
   root.userData.guns = guns;
-  root.userData.meshes = [body, ...guns.map((g) => g.mesh)];
+  root.userData.rack = rack;
+  root.userData.meshes = [body, rackMesh, ...guns.map((g) => g.mesh), ...guns.filter((g) => g.base).map((g) => g.base)];
   return root;
 }
 
+// Lofted hull: `stations` run bow to stern, each a list of [x, y, halfWidth] points from
+// the deck edge down to the keel. Each band between two consecutive rows gets its own
+// colour (`bands`), the deck between the two deck edges gets `deckColor`, and the stern
+// is closed with a transom. Built directly as a flat-shaded, vertex-coloured geometry.
+function loftHull(stations, bands, deckColor, transomColor) {
+  const pos = [];
+  const col = [];
+  const tri = (a, b, c, color) => {
+    _c.set(color);
+    for (const v of [a, c, b]) {
+      pos.push(v[0], v[1], v[2]);
+      col.push(_c.r, _c.g, _c.b);
+    }
+  };
+  const quad = (a, b, c, d, color) => {
+    tri(a, b, c, color);
+    tri(a, c, d, color);
+  };
+  const R = (st, j) => [st[j][0], st[j][1], st[j][2]];
+  const L = (st, j) => [st[j][0], st[j][1], -st[j][2]];
+  for (let i = 0; i < stations.length - 1; i++) {
+    const a = stations[i];
+    const b = stations[i + 1];
+    for (let j = 0; j < a.length - 1; j++) {
+      quad(R(a, j), R(b, j), R(b, j + 1), R(a, j + 1), bands[j]);
+      quad(L(a, j), L(a, j + 1), L(b, j + 1), L(b, j), bands[j]);
+    }
+    const k = a.length - 1;
+    quad(L(a, 0), L(b, 0), R(b, 0), R(a, 0), deckColor);
+    quad(R(a, k), R(b, k), L(b, k), L(a, k), bands[k - 1]);
+  }
+  const t = stations[stations.length - 1];
+  for (let j = 0; j < t.length - 1; j++) quad(L(t, j), L(t, j + 1), R(t, j + 1), R(t, j), transomColor);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.computeVertexNormals();
+  return g;
+}
+
+// Battleship hull lines: raked stem, sheer rising to the bow, flared sides, red boot
+// topping below the waterline and a flat transom stern.
+const DREAD_STATIONS = [
+  // [x, y, half-width] from deck edge, boot top, waterline, bilge to keel.
+  [[-13.7, 3.15, 0.04], [-12.9, 0.3, 0.04], [-12.6, -0.05, 0.04], [-12.2, -0.6, 0.04], [-11.8, -0.9, 0.04]],
+  [[-11.2, 3.0, 1.45], [-11.0, 0.3, 1.0], [-11.0, -0.05, 0.9], [-11.0, -0.6, 0.7], [-11.0, -0.9, 0.25]],
+  [[-8.0, 2.72, 2.15], [-8.0, 0.3, 1.95], [-8.0, -0.05, 1.85], [-8.0, -0.6, 1.6], [-8.0, -0.9, 0.8]],
+  [[-4.2, 2.2, 2.42], [-4.2, 0.3, 2.38], [-4.2, -0.05, 2.32], [-4.2, -0.6, 2.05], [-4.2, -0.9, 1.05]],
+  [[0, 2.05, 2.45], [0, 0.3, 2.42], [0, -0.05, 2.38], [0, -0.6, 2.1], [0, -0.9, 1.1]],
+  [[9.0, 2.05, 2.45], [9.0, 0.3, 2.42], [9.0, -0.05, 2.38], [9.0, -0.6, 2.1], [9.0, -0.9, 1.1]],
+  [[11.4, 2.1, 2.05], [11.4, 0.3, 1.9], [11.3, -0.05, 1.75], [11.1, -0.6, 1.35], [10.8, -0.9, 0.55]],
+  [[12.7, 2.18, 1.4], [12.55, 0.3, 1.2], [12.35, -0.05, 1.0], [11.9, -0.6, 0.55], [11.3, -0.9, 0.2]],
+];
+// Deck height along the hull (for placing fittings on the sheer).
+function dreadDeckY(x) {
+  const s = DREAD_STATIONS;
+  for (let i = 0; i < s.length - 1; i++) {
+    const a = s[i][0];
+    const b = s[i + 1][0];
+    if (x <= b[0]) return a[1] + ((x - a[0]) / (b[0] - a[0])) * (b[1] - a[1]);
+  }
+  return s[s.length - 1][0][1];
+}
+
 // Battleship (built facing -X, mirrored to sail facing +X). Waterline at y = 0.
+// A raked bow with a raised forecastle, three triple turrets (two forward, superfiring,
+// one aft), a stepped superstructure with bridge, tripod mast and two raked funnels,
+// twin AA mounts, and vertical launch cells on the quarterdeck.
 export function createDreadnought() {
   const root = new THREE.Group();
   const model = new THREE.Group();
   model.rotation.y = PI; // built facing -X, travels facing +X
   root.add(model);
-  const hull = '#5c6770';
-  const dark = '#2a3036';
-  const geo = cached('dreadnought', () => merge([
-    part(box(20, 2.4, 4.6), hull, [0.5, 0.6, 0]),
-    part(cone(2.3, 4.5, 4), hull, [-11.6, 0.6, 0], [HALF, 0, HALF], [1, 1, 0.75]),
-    part(box(21, 0.5, 4.7), '#7a2e27', [0, -0.5, 0]),
-    part(box(20.5, 0.2, 4.8), '#b9b39a', [0.3, 1.85, 0]),
-    part(box(4.4, 3.4, 3.2), '#8e98a0', [0.5, 3.5, 0]),
-    part(box(2.8, 2.2, 2.6), '#8e98a0', [0.3, 6.2, 0]),
-    part(box(3.0, 0.5, 2.8), dark, [0.3, 7.2, 0]),
-    part(cyl(0.12, 0.16, 5, 5), dark, [0.3, 9.6, 0]),
-    part(box(0.2, 0.2, 3), dark, [0.3, 11, 0]),
-    part(cyl(0.9, 1.1, 3.2, 8), dark, [4.2, 3.6, 0], [0, 0, -0.15]),
-    part(cyl(0.9, 1.1, 3.2, 8), dark, [6.6, 3.4, 0], [0, 0, -0.15]),
-    ...[-7.2, -3.8, 8.4].map((x) => part(cyl(1.4, 1.6, 0.9, 10), dark, [x, 2.2, 0])),
-  ]));
+  const hull = '#5f6a73';
+  const upper = '#8b959d';
+  const dark = '#262c31';
+  const deck = '#a6926a';
+  const geo = cached('dreadnought', () => {
+    const P = [];
+    P.push(loftHull(DREAD_STATIONS, [hull, '#1d2226', '#7a2e27', '#7a2e27'], deck, hull));
+    // Portholes along the hull and the anchors.
+    for (let x = -7.5; x <= 8.5; x += 1.25) for (const z of [-2.44, 2.44]) P.push(part(box(0.28, 0.28, 0.06), dark, [x, 1.3, z]));
+    for (const z of [-1, 1]) P.push(part(box(0.8, 0.55, 0.3), dark, [-11.0, 2.0, z * 1.25], [z * 0.5, 0, 0]));
+    // Breakwater on the forecastle and guard rails.
+    P.push(prof([[-0.3, 0], [0.3, 0], [0.1, 0.6], [-0.2, 0.6]], 3.6, hull).translate(-10.2, dreadDeckY(-10.2) - 0.05, 0));
+    // Superstructure: stepped decks, bridge with windows, bridge wings and rangefinder.
+    P.push(part(box(9.0, 1.4, 3.6), upper, [0.6, 2.75, 0]));
+    P.push(part(box(5.6, 1.3, 3.0), upper, [-0.6, 4.1, 0]));
+    P.push(part(box(3.2, 1.25, 2.7), upper, [-1.5, 5.35, 0]));
+    P.push(part(box(3.25, 0.32, 2.75), '#14191d', [-1.5, 5.5, 0]));
+    P.push(part(box(0.9, 0.15, 4.2), upper, [-2.6, 5.9, 0]));
+    P.push(part(box(1.1, 0.65, 1.1), dark, [-1.5, 6.3, 0]));
+    P.push(part(cyl(0.12, 0.12, 3.4, 6), dark, [-1.5, 6.4, 0], [HALF, 0, 0]));
+    for (let x = -3.4; x <= 4.4; x += 0.9) P.push(part(box(0.35, 0.3, 3.62), '#14191d', [x, 3.0, 0]));
+    // Tripod mast with radar and yard.
+    P.push(part(cyl(0.12, 0.18, 5.4, 6), dark, [-0.4, 9.0, 0]));
+    P.push(part(cyl(0.08, 0.1, 4.0, 5), dark, [0.4, 8.0, 0.6], [0.15, 0, 0.22]));
+    P.push(part(cyl(0.08, 0.1, 4.0, 5), dark, [0.4, 8.0, -0.6], [-0.15, 0, 0.22]));
+    P.push(part(box(0.12, 0.12, 3.2), dark, [-0.4, 10.0, 0]));
+    P.push(part(box(0.25, 0.8, 2.0), '#3d464d', [-0.4, 10.9, 0]));
+    // Two raked funnels with black caps.
+    for (const [x, y, h] of [[2.3, 4.7, 3.2], [4.6, 4.3, 2.6]]) {
+      P.push(part(cyl(0.85, 1.05, h, 10), upper, [x, y, 0], [0, 0, -0.14]));
+      P.push(part(cyl(0.92, 0.9, 0.4, 10), '#15181b', [x + Math.sin(0.14) * h * 0.5, y + h * 0.5, 0], [0, 0, -0.14]));
+    }
+    // Lifeboats.
+    for (const z of [-1.95, 1.95]) for (const x of [3.0, 5.0]) P.push(part(sphere(0.5, 8, 4), '#e6e3d6', [x, 3.6, z], [0, 0, 0], [1.6, 0.6, 0.6]));
+    // Aft deckhouse, vertical launch cells and the ensign.
+    P.push(part(box(2.6, 1.2, 2.6), upper, [6.4, 2.65, 0]));
+    for (let i = 0; i < 3; i++) for (const z of [-0.5, 0.5]) P.push(part(box(0.6, 0.12, 0.6), dark, [10.6 + i * 0.75, 2.12, z]));
+    P.push(part(cyl(0.05, 0.05, 2.4, 4), dark, [12.1, 3.2, 0]));
+    P.push(prof([[12.1, 3.6], [13.5, 3.75], [13.5, 4.35], [12.1, 4.4]], 0.06, '#b8382d'));
+    // Turret barbettes and housings: two forward (facing the bow), one aft.
+    P.push(part(cyl(1.35, 1.5, 0.5, 12), dark, [-8.4, 2.95, 0]));
+    P.push(part(cyl(1.35, 1.5, 1.5, 12), dark, [-5.1, 3.0, 0]));
+    P.push(part(cyl(1.35, 1.5, 0.4, 12), dark, [8.7, 2.25, 0]));
+    const fwd = [[-1.8, 0], [1.6, 0], [1.8, 0.9], [-1.1, 1.2], [-1.95, 0.65]];
+    const aft = fwd.map(([x, y]) => [-x, y]);
+    P.push(part(slab(fwd, 2.6), upper, [-8.4, 3.15, 0]));
+    P.push(part(slab(fwd, 2.6), upper, [-5.1, 3.7, 0]));
+    P.push(part(slab(aft, 2.6), upper, [8.7, 2.4, 0]));
+    return merge(P);
+  });
   const body = mesh(geo);
   model.add(body);
   const guns = [
-    bossGun(model, [-7.2, 2.9, 0], 'main'),
-    bossGun(model, [-3.8, 2.9, 0], 'main'),
-    bossGun(model, [8.4, 2.9, 0], 'main'),
-    bossGun(model, [-1.9, 5.3, -1.7], 'flak'),
-    bossGun(model, [2.9, 5.3, -1.7], 'flak'),
+    bossGun(model, [-8.1, 3.75, 0], 'main', tripleBarrelGeometry(), 4.6, 1.2),
+    bossGun(model, [-4.8, 4.3, 0], 'main', tripleBarrelGeometry(), 4.6, 1.2),
+    bossGun(model, [8.4, 3.0, 0], 'main', tripleBarrelGeometry(), 4.6, 1.2),
+    bossGun(model, [-3.4, 3.85, -1.95], 'flak', twinAAGeometry(), 2.3),
+    bossGun(model, [3.7, 3.85, -1.95], 'flak', twinAAGeometry(), 2.3),
   ];
   root.userData.guns = guns;
+  root.userData.funnels = [[2.3 + 0.22, 6.3], [4.6 + 0.18, 5.6]];
   root.userData.meshes = [body, ...guns.map((g) => g.mesh)];
   return root;
 }
 
-// Enemy ace: oversized crimson fighter built facing +X (steered by heading).
+// Enemy ace: oversized crimson fighter built facing +X (steered by heading), carrying a
+// heat-seeker under each wing and a bomb on the centreline.
 export function createAce() {
-  return buildJet(PALETTES.ace, 1, 1.35);
+  const root = buildJet(PALETTES.ace, 1, 1.35);
+  const model = root.children[0];
+  const stores = mesh(cached('ace:stores', () => {
+    const P = [];
+    for (const z of [-1.9, 1.9]) {
+      P.push(part(box(0.7, 0.3, 0.08), '#151515', [-0.5, -0.32, z]));
+      P.push(part(cyl(0.12, 0.12, 1.6, 6), '#e8e4da', [-0.5, -0.55, z], ALONG_X));
+      P.push(part(cone(0.12, 0.35, 6), '#9c1f1f', [0.47, -0.55, z], ALONG_X));
+      P.push(part(box(0.3, 0.35, 0.04), '#555', [-1.2, -0.55, z]));
+    }
+    P.push(part(box(0.6, 0.3, 0.1), '#151515', [0.1, -0.62, 0]));
+    P.push(part(sphere(0.3, 8, 6), '#33363a', [0.1, -0.95, 0], [0, 0, 0], [2.2, 1, 1]));
+    P.push(part(box(0.1, 0.62, 0.62), '#c0392b', [0.25, -0.95, 0]));
+    return merge(P);
+  }));
+  model.add(stores);
+  root.userData.meshes.push(stores);
+  return root;
 }
 
-// Stealth flying wing, facing -X, tilted to show its chevron planform.
+// Stealth flying wing, facing -X, tilted to show its chevron planform. The bomb bay doors
+// on the centre body slide open (showing a red-lit bay) for every bombing run, and two
+// missile hatches sit behind the cockpit.
 export function createNightwing() {
   const root = new THREE.Group();
   const model = new THREE.Group();
@@ -912,6 +1271,8 @@ export function createNightwing() {
     part(sphere(1, 12, 8), '#343947', [-0.6, 0.35, 0], [0, 0, 0], [4.6, 0.9, 2.6]),
     part(box(1.4, 0.2, 1.8), '#101218', [-3.4, 0.7, 0]),
     ...[-2.2, 2.2].map((z) => part(box(2.6, 0.5, 1.1), '#1d2029', [0.8, 0.55, z])),
+    ...[-0.55, 0.55].map((z) => part(box(0.7, 0.12, 0.45), '#15171d', [-2.2, 1.12, z])),
+    part(box(3.0, 0.06, 1.9), '#14161c', [0.6, 1.1, 0]),
   ]));
   const body = mesh(geo);
   model.add(body);
@@ -922,8 +1283,22 @@ export function createNightwing() {
     model.add(f);
     return f;
   });
+  // Red-lit bay interior and two doors hinged on their outer edges.
+  const bayLight = new THREE.Mesh(cached('nightwing:bay', () => new THREE.BoxGeometry(2.8, 0.05, 1.7)), glowMat(0xff3020, 0));
+  bayLight.position.set(0.6, 1.16, 0);
+  model.add(bayLight);
+  // Bay doors slide outward to open: position.z = side * (0.46 + 0.9 * open).
+  const doorGeo = cached('nightwing:door', () => merge([part(box(2.9, 0.08, 0.92), '#3b404e')]));
+  const doors = [-1, 1].map((side) => {
+    const d = mesh(doorGeo);
+    d.position.set(0.6, 1.21, side * 0.46);
+    model.add(d);
+    return { mesh: d, side };
+  });
   root.userData.glows = glows;
-  root.userData.meshes = [body];
+  root.userData.bayLight = bayLight;
+  root.userData.doors = doors;
+  root.userData.meshes = [body, ...doors.map((d) => d.mesh)];
   return root;
 }
 

@@ -325,6 +325,22 @@ export class Effects {
     if (heavy && Math.random() < 0.5) this.glow.spawn(x, y, 0, vx, rnd(1, 3), 0, 0.3, 1.2, 0.4, COL.yellow, COL.red, 0.9);
   }
 
+  // Burning flare decoy: a hot white core with a short smoky tail.
+  flareGlow(x, y) {
+    this.glow.spawn(x, y, 0.6, 0, 0, 0, 0.08, 2.4, 1.2, COL.white, COL.yellow, 1);
+    if (Math.random() < 0.5) this.smoke.spawn(x, y, 0.2, rnd(-1, 1), rnd(0, 1), 0, rnd(0.5, 0.9), 0.5, 1.6, COL.smokeLight, COL.smoke, 0.5, 1, 0.5);
+  }
+
+  // Steam venting off an overheated gun barrel.
+  steam(x, y) {
+    this.smoke.spawn(x, y, 0.4, rnd(-1, 1), rnd(2, 4), 0, rnd(0.4, 0.8), 0.4, 1.6, COL.smokeLight, COL.smokeLight, 0.6, 1, -1);
+  }
+
+  // Light funnel smoke drifting back from a ship.
+  funnelSmoke(x, y, vx) {
+    this.smoke.spawn(x, y, -0.3, vx + rnd(-1, 1), rnd(1.5, 3), 0, rnd(1.2, 2), 1, 3.2, COL.smokeDark, COL.smoke, 0.45, 0.6, 1);
+  }
+
   pickupSparkle(x, y) {
     for (let i = 0; i < 10; i++) {
       const a = (i / 10) * Math.PI * 2;

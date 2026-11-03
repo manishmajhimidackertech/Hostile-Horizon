@@ -4,7 +4,7 @@ import {
 } from './save.js';
 import { PLANES, planeRatings, gunsUpgradeDesc, armorUpgradeDesc } from './planes.js';
 import { missionInfo } from './director.js';
-import { BOSS_NAMES } from './enemies.js';
+import { BOSS_NAMES, BOSS_INFO } from './enemies.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -326,7 +326,11 @@ export class UI {
     $('mission-num').textContent = `MISSION ${m.number}`;
     $('mission-name').textContent = m.name;
     $('mission-desc').textContent = m.desc;
-    $('mission-boss').textContent = `Target: ${BOSS_NAMES[m.boss]}`;
+    const boss = $('mission-boss');
+    boss.textContent = 'Target: ';
+    const name = document.createElement('b');
+    name.textContent = BOSS_NAMES[m.boss];
+    boss.append(name, document.createElement('br'), BOSS_INFO[m.boss].tagline);
     $('mission-prev').disabled = m.number <= 1;
     $('mission-next').disabled = m.number >= save.unlocked;
     $('hangar-record').textContent = save.highScore ? `Best score ${save.highScore.toLocaleString()} · ${save.stats.kills} kills total` : 'Complete a mission to unlock the next one';
@@ -504,7 +508,7 @@ export class UI {
     const rows = [
       ['Score', r.score.toLocaleString()],
       ['Kills', r.kills],
-      ['Best combo', r.maxCombo > 1 ? `×${r.maxCombo}` : '—'],
+      ['Best combo', r.maxCombo > 1 ? `×${r.maxCombo}` : '-'],
       ['Accuracy', `${r.accuracy}%`],
       ['Credits collected', r.credits.toLocaleString()],
     ];
@@ -532,6 +536,8 @@ export class UI {
   setBoss(name) {
     $('boss-bar').hidden = !name;
     if (name) $('boss-name').textContent = name.toUpperCase();
+    $('boss-tag').textContent = '';
+    this.hudCache.bossTag = '';
   }
 
   banner(text, seconds = 2, cls = '') {
@@ -604,6 +610,7 @@ export class UI {
     if (g.boss) {
       const f = Math.max(0, g.boss.hp / g.boss.maxHp);
       this._set('boss', Math.round(f * 300), () => ($('boss-fill').style.transform = `scaleX(${f})`));
+      this._set('bossTag', g.boss.tag, (v) => ($('boss-tag').textContent = v));
     }
   }
 
