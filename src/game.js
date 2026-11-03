@@ -5,7 +5,7 @@ import { Effects } from './fx.js';
 import { Weapons } from './weapons.js';
 import { Hazards } from './hazards.js';
 import { Player } from './player.js';
-import { Enemy, BOSS_NAMES } from './enemies.js';
+import { Enemy, BOSS_NAMES, BOSS_INFO } from './enemies.js';
 import { Director, missionInfo, difficulty } from './director.js';
 import { createPickup, createPlaneModel } from './models.js';
 import { writeSave, applyGod } from './save.js';
@@ -341,6 +341,8 @@ export class Game {
   setBoss(e) {
     this.boss = e;
     this.ui.setBoss(BOSS_NAMES[e.kind]);
+    // Intel on the boss's strengths and weaknesses as it arrives.
+    this.ui.toast(BOSS_INFO[e.kind].intel, 8);
   }
 
   onBossDown(boss) {

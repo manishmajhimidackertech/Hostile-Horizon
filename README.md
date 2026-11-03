@@ -29,18 +29,18 @@ Fly a jet through enemy territory. Shoot down fighters, interceptors and gunship
   - *Night Siege*: watchtower searchlights sweep on a fixed pattern. Stay in a beam for a moment and it turns red and fires a missile. Towers can be bombed.
 - **Six aircraft**: F-5 Hawk (starter), V-7 Viper, A-12 Thunderbolt, F-40 Raptor, Su-X Specter and X-1 Nova. They differ in hull, guns, speed and ordnance. Each has its own trade-off: the Hawk fires single missiles and bombs; the Viper does too but repairs itself slowly; the Thunderbolt drops bombs in pairs; the Raptor fires missiles in pairs; the Specter fires missiles and drops bombs in pairs and has the strongest self-repair; the Nova fires missiles and drops bombs in threes but cannot repair itself. Only the Viper and Specter self-repair. Upgrades never change how many missiles or bombs a plane releases at once. Each plane has its own five-level upgrade tracks.
 - **Enemies**: fighters (including ones attacking from behind), homing interceptors, gunships with rockets, tanks, time-fused flak guns and naval units.
-- **Seven bosses**, each with its own attack patterns and an enraged second phase below 50% hull. Every map has a signature boss, and the boss rotates each time the map comes round again:
+- **Seven bosses**, each with its own personality: strengths, weaknesses and an enraged second phase. Like the player's aircraft, each boss has armour that resists some weapons more than others (cannons, missiles, bombs), and most have a weak spot. A **WEAK SPOT** / **ARMOURED** callout teaches this as you fight, the boss's status (bay open, flares left, turrets left...) shows next to its health bar, and a short intel note appears when it arrives. Supply crates drop during boss fights. Every map has a signature boss, and the boss rotates each time the map comes round again:
 
-  | Boss | Style |
-  | --- | --- |
-  | B-9 Stratofortress | Heavy bomber with twin turrets and rocket volleys |
-  | Leviathan Airship | Armoured zeppelin: turrets, bullet fans, rocket salvos, barrages |
-  | Titan Heavy Gunship | Twin-rotor helicopter that tracks your altitude with a chin minigun and rocket pods |
-  | Behemoth Land Fortress | Giant multi-turret tank: main cannon, flak guns, missile rack (bring bombs) |
-  | Dreadnought Battleship | Naval fortress with three main turrets and AA guns |
-  | Crimson Ace | Agile dogfighter that loops around, dives at you and calls in wingmen |
-  | Nightwing Stealth Bomber | Flying wing that makes carpet-bombing passes at changing altitudes |
-- **Weapons**: cannons aimed by the jet's pitch, homing missiles and gravity bombs.
+  | Boss | Strengths | Weaknesses | Enraged |
+  | --- | --- | --- | --- |
+  | B-9 Stratofortress | Gunners cover above and below; tail rockets; drops back over you for bombing runs | Slow; the belly takes double damage while the bomb bay is open; belly gunner silent during runs; missiles do less | Engine fire, bigger bomb sticks, three-round bursts |
+  | Leviathan Airship | Huge hull, four turrets, bullet fans, barrages; launches interceptors from its hangar | Cannon rounds mostly pass through the gas bag; the gondola is a weak spot, and the open hangar more so; missiles do extra | Loses gas and sinks lower, launches three interceptors |
+  | Titan Heavy Gunship | Armoured against cannons; shadows your altitude; chin minigun; unguided rocket-pod ripples after a lock tone | Minigun overheats after a long burst and goes quiet; slow minigun traverse; engines on the rear pylon are a weak spot | Door gunner opens fire, faster cooling |
+  | Behemoth Land Fortress | Heavy armour (cannons and missiles do little); charged main gun; two flak guns; missile rack | Bombs do extra; glowing rear engine deck is a weak spot; main gun cannot aim straight up; flak guns can be destroyed | Turret mortar lobs fused shells |
+  | Dreadnought Battleship | Three triple turrets with broadsides, two AA mounts; armoured against cannons | Every gun can be destroyed on its own; slow turret traverse; broadsides glow first; bombs do extra | Cruise missiles from its launch cells |
+  | Crimson Ace | Fastest and most agile; leads its shots; heat-seekers after a lock tone; bombing runs; flares break missile locks | Thinnest armour (cannons do extra); limited flares; slow and exposed (extra damage) while recovering after each attack | Wingmen, more flares, missiles in pairs |
+  | Nightwing Stealth Bomber | Missiles cannot lock while its bay is shut; carpet-bombs with real bombs; missiles, more if you sit above it | No guns; predictable passes; the open bay can be locked and takes double damage | Cluster bombs that split into bomblets |
+- **Weapons**: cannons aimed by the jet's pitch (tracers fly to the edge of the screen), homing missiles and gravity bombs.
 - **Progression**: credits, combo multiplier, an aircraft shop with rendered previews, six upgrade tracks per plane, and unlockable missions. Progress is saved in `localStorage`, and older saves migrate automatically (existing upgrades move to the Hawk).
 - **Input**: keyboard, mouse steering, touch (drag to fly with FIRE / MSL / BOMB buttons and optional auto-fire) and gamepad.
 - **PWA**: web app manifest, precaching service worker (Workbox), offline play, fullscreen landscape display, install button and update prompt.
@@ -54,7 +54,7 @@ Fly a jet through enemy territory. Shoot down fighters, interceptors and gunship
 | Cannons | Space (hold)   | Left button     | FIRE (hold)    | A / RT     |
 | Missile | E              | Right button    | MSL            | B / RB     |
 | Bomb    | Q              | Wheel / middle  | BOMB           | X / LB     |
-| Pause   | Esc / P        | —               | II button      | Start      |
+| Pause   | Esc / P        | -               | II button      | Start      |
 
 ## God mode (for testing)
 
