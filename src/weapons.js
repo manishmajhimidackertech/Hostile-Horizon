@@ -142,7 +142,7 @@ export class Weapons {
 
   bomb(x, y, vxWorld, vy, radius, damage) {
     const g = this.game;
-    const obj = createBomb();
+    const obj = createBomb('player');
     obj.position.set(x, y, 0.3);
     g.scene.add(obj);
     this.bombs.push({ obj, x, y, vx: vxWorld, vy, radius, damage });
@@ -151,11 +151,12 @@ export class Weapons {
 
   // Enemy gravity bomb (world-frame velocity), same physics as the player's bombs. It
   // explodes on contact with the player or the ground; the blast hurts the player within
-  // `radius`. Cluster bombs split into three bomblets shortly after release.
-  // Player cannon fire can detonate a falling bomb in mid-air.
+  // `radius`. Cluster bombs split into three bomblets shortly after release. Mortar bombs
+  // (`style: 'mortar'`) also burst in the air after `fuse` seconds or when they pass
+  // within `proximity` of the player. Player cannon fire can detonate a bomb in mid-air.
   enemyBomb(x, y, vxWorld, vy, opts = {}) {
     const g = this.game;
-    const obj = createBomb(true);
+    const obj = createBomb(opts.style ?? 'enemy');
     const scale = opts.scale ?? 1;
     obj.scale.setScalar(scale);
     obj.position.set(x, y, 0.3);
@@ -163,8 +164,9 @@ export class Weapons {
     this.enemyBombs.push({
       obj, x, y, vx: vxWorld, vy, age: 0, scale,
       radius: opts.radius ?? 4, damage: opts.damage ?? 16, cluster: !!opts.cluster,
+      fuse: opts.fuse ?? Infinity, proximity: opts.proximity ?? 0,
     });
-    g.audio.play('enemyBomb');
+    if (opts.style !== 'mortar') g.audio.play('enemyBomb');
   }
 
   // Flare decoy: a burning point that player missiles will chase instead of the boss.
@@ -420,6 +422,8 @@ export class Weapons {
         ground = true;
       } else if (p.alive && p.hitTest(b.x, b.y, 0.45 * b.scale)) {
         boom = true;
+      } else if (b.age >= b.fuse || (b.proximity && p.alive && Math.hypot(p.x - b.x, p.y - b.y) < b.proximity)) {
+        boom = true; // air burst
       }
       if (boom) this._enemyBlast(b.x, Math.max(b.y, gy), b.radius, b.damage, ground);
       if (boom || b.x < left - 12 || b.x > right + 30 || b.y < -70) {

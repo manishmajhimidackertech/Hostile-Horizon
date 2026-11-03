@@ -25,12 +25,29 @@ function leadAngle(g, fx, fy, speed, k = 1) {
   return Math.atan2(ty - fy, tx - fx);
 }
 
-// Launch velocity (camera frame) for a fused shell that reaches (tx, ty) after `t`
-// seconds under gravity `grav` (negative = down).
-function lobAngle(fx, fy, tx, ty, t, grav) {
-  const vx = (tx - fx) / t;
-  const vy = (ty - fy - 0.5 * grav * t * t) / t;
-  return [Math.atan2(vy, vx), Math.hypot(vx, vy)];
+// Launch velocity (world frame) that brings a gravity bomb (Weapons physics: gravity 30,
+// light drag) from (fx, fy) to (tx, ty) after `t` seconds. Starts from the drag-free
+// answer and corrects it against a simulated flight.
+function lobBomb(fx, fy, tx, ty, t) {
+  let vx = (tx - fx) / t;
+  let vy = (ty - fy + 15 * t * t) / t;
+  const step = 1 / 60;
+  for (let it = 0; it < 3; it++) {
+    let x = fx;
+    let y = fy;
+    let bx = vx;
+    let by = vy;
+    for (let s = 0; s < t; s += step) {
+      by -= 30 * step;
+      bx *= 1 - 0.08 * step;
+      by *= 1 - 0.08 * step;
+      x += bx * step;
+      y += by * step;
+    }
+    vx += (tx - x) / t;
+    vy += (ty - y) / t;
+  }
+  return [vx, vy];
 }
 
 // Where a gravity bomb released now crosses height `ty`, using exactly the same physics
@@ -583,7 +600,8 @@ const KINDS = {
       let station = g.halfW - 12;
       let wantY = e.baseY + Math.sin(e.age * 0.5) * 7;
       if (e.run === 'approach' || e.run === 'drop') {
-        station = p.x - g.camX;
+        // Settle right above the player (the bay sits 0.8 ahead of the centre).
+        station = p.x - g.camX - 0.8;
         wantY = Math.min(g.halfH - 6, p.y + 9);
       }
       // After a run it opens the throttle to get back ahead of the player quickly.
@@ -596,26 +614,30 @@ const KINDS = {
       e.y += e.vy * dt;
       e.obj.rotation.z = Math.atan2(e.vy, Math.max(4, e.worldVx)) * 0.8;
       if (e.run === 'approach') {
-        // Release when a bomb dropped now would land on the player.
-        const hit = e.y > p.y + 3 ? bombImpact(e.x + 0.8, e.y - 1.6, e.worldVx, e.vy - 1, p.y) : null;
-        if (hit && Math.abs(hit.x - (p.x + (g.scroll + p.vxRel) * hit.t)) < 4) {
+        // Close to overhead: open the bay (the warning) and start the drop.
+        if (Math.abs(e.x + 0.8 - p.x) < 8 && e.y > p.y + 3) {
           e.run = 'drop';
-          e.bombsLeft = phase2 ? 5 : 3;
+          e.bombsLeft = phase2 ? 4 : 3;
           e.bombT = 0.45; // doors open first
+          e.runT = 4; // gives up if it cannot line up
         } else if (e.runT <= 0) {
           e.run = 'leave';
           e.runT = 0;
         }
       } else if (e.run === 'drop') {
+        // One bomb at a time, each released only when it would land right on the player,
+        // with a pause between them so the player can react after the first one.
         e.bombT -= dt;
-        if (e.bombT <= 0 && e.bay > 0.9) {
+        const hit = e.y > p.y + 3 ? bombImpact(e.x + 0.8, e.y - 1.6, e.worldVx, e.vy - 1, p.y) : null;
+        const onTarget = hit && Math.abs(hit.x - (p.x + (g.scroll + p.vxRel) * hit.t)) < 1;
+        if (e.bombT <= 0 && e.bay > 0.9 && onTarget) {
           g.weapons.enemyBomb(e.x + 0.8, e.y - 1.6, e.worldVx, e.vy - 1, { scale: 1.6, radius: 4, damage: 12 });
           e.bombsLeft--;
-          e.bombT = 0.17;
-          if (e.bombsLeft <= 0) {
-            e.run = 'leave';
-            e.runT = 1.2;
-          }
+          e.bombT = 0.5;
+        }
+        if (e.bombsLeft <= 0 || e.runT <= 0) {
+          e.run = 'leave';
+          e.runT = 1.2;
         }
       } else if (e.run === 'leave') {
         if (e.runT <= 0 && rel > g.halfW - 18) {
@@ -661,11 +683,11 @@ const KINDS = {
   },
 
   // Leviathan airship: an armoured flying carrier. Cannon rounds mostly pass through the
-  // gas bag, so missiles and the gondola are the way in. It launches interceptors from a
-  // hangar under the gondola, and the open hangar is a big weak spot.
+  // gas bag, so missiles and the gondola are the way in. It launches interceptor
+  // missiles from a hangar under the gondola, and the open hangar is a big weak spot.
   airship: {
     hp: 260, r: 5, score: 6000, credits: 600, air: true, boss: true, facing: 1, name: 'Leviathan Airship',
-    features: 'Launches fighters',
+    features: 'Launches interceptor missiles',
     weakness: 'Gondola, open hangar',
     enrage: 'LEVIATHAN IS LOSING GAS',
     armor: { gun: 0.75, missile: 1.2 },
@@ -682,6 +704,8 @@ const KINDS = {
       e.hangar = 0;
       e.hangarT = 7;
       e.launchT = 0;
+      e.salvo = 0;
+      e.salvoT = 0;
     },
     update(e, dt, g) {
       const rel = e.x - g.camX;
@@ -716,17 +740,29 @@ const KINDS = {
       e.hangarT -= dt;
       if (e.hangarT <= 0 && inRange && g.player.alive && e.launchT <= 0) {
         e.launchT = 3.2;
-        g.ui.banner('INTERCEPTORS LAUNCHING', 1.1, 'warn');
+        g.ui.banner('INTERCEPTOR MISSILES LAUNCHING', 1.1, 'warn');
       }
       if (e.launchT > 0) {
         const before = e.launchT;
         e.launchT -= dt;
         if (before > 2 && e.launchT <= 2) {
-          const n = phase2 ? 3 : 2;
-          for (let k = 0; k < n; k++) g.addEnemy('dart', e.x + 1 - k * 2, e.y - 7, {});
-          g.audio.play('missile');
+          e.salvo = phase2 ? 4 : 3;
+          e.salvoT = 0;
         }
         if (e.launchT <= 0) e.hangarT = rand(13, 16) / rate;
+      }
+      // Interceptor missiles leave the hangar one by one, each on its own heading
+      // (fanning down and back) before they turn to home in.
+      if (e.salvo > 0) {
+        e.salvoT -= dt;
+        if (e.salvoT <= 0) {
+          const k = (phase2 ? 4 : 3) - e.salvo;
+          g.addEnemy('rocket', e.x + 1, e.y - 6.8, { heading: -Math.PI / 2 - 0.25 - k * 0.38 });
+          g.fx.muzzle(e.x + 1, e.y - 6.8, g.scroll);
+          g.audio.play('missile');
+          e.salvo--;
+          e.salvoT = 0.3;
+        }
       }
       e.hangar = clamp(e.hangar + (e.launchT > 0.3 ? dt * 1.5 : -dt * 2), 0, 1);
       e.weak[0] = e.hangar > 0.4 ? 2.5 : 1.6;
@@ -1017,7 +1053,8 @@ KINDS.behemoth = {
       g.audio.play('missile');
       e.missileT = rand(6, 8) / rate;
     }
-    // Enraged: a turret-top mortar lobs fused shells around where the player is heading.
+    // Enraged: a turret-top mortar lobs red mortar bombs (the player's bomb design in
+    // red) around where the player is heading; they burst near the player.
     if (phase2) {
       e.mortarT -= dt;
       if (e.mortarT <= 0 && inRange && p.alive) {
@@ -1025,9 +1062,12 @@ KINDS.behemoth = {
         const my = e.y + 7.2;
         for (const off of [-4, 0, 4]) {
           const T = 1.5 + off * 0.03;
-          const [ang, sp] = lobAngle(mx, my, p.x + p.vxRel * T * 0.6 + off, p.y + p.vyRel * T * 0.4, T, -22);
-          g.weapons.enemyBullet(mx, my, ang, sp, 12, { fuse: T, flak: true, grav: -22 });
+          const tx = p.x + (g.scroll + p.vxRel * 0.6) * T + off;
+          const ty = p.y + p.vyRel * T * 0.4;
+          const [vx, vy] = lobBomb(mx, my, tx, ty, T);
+          g.weapons.enemyBomb(mx, my, vx, vy, { style: 'mortar', scale: 1.4, fuse: T, proximity: 1.8, radius: 3.5, damage: 12 });
         }
+        g.fx.muzzle(mx, my, g.scroll);
         g.audio.play('flak');
         e.mortarT = rand(4, 5.5) / rate;
       }
